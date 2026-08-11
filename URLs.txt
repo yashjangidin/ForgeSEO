@@ -1,0 +1,13 @@
+Live URLs:
+
+ForgeSEO app:
+https://forgeseo-prod-fd54a.web.app
+
+Firebase Hosting API rewrite:
+https://forgeseo-prod-fd54a.web.app/api/capabilities
+
+Cloud Run API:
+https://forgeseo-api-383536025765.asia-south1.run.app
+
+Cloud Run API alternate:
+https://forgeseo-api-xxxk7nkcbq-el.a.run.app

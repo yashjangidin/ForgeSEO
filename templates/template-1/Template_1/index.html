@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{META_TITLE}}</title>
+<meta name="description" content="{{META_DESCRIPTION}}">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+:root{
+  --bg:#0c0a16;
+  --bg-alt:#131022;
+  --card:#16132a;
+  --violet:#8b5cf6;
+  --violet-soft:#a78bfa;
+  --cyan:#22d3ee;
+  --text:#e7e4f4;
+  --muted:#a9a4c4;
+  --border:#2a2545;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Inter',Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+a{text-decoration:none;color:inherit;}
+h1,h2,h3,h4{font-family:'Sora',sans-serif;color:#fff;line-height:1.2;}
+img{max-width:100%;display:block;}
+main a,.hero a,.block a,.embed-card a,.faq-a a{color:var(--cyan);text-decoration:none;}
+main a:hover,.hero a:hover,.block a:hover,.embed-card a:hover,.faq-a a:hover{color:#fff;}
+
+header{
+  position:sticky;top:0;z-index:60;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 44px;background:rgba(12,10,22,.88);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+}
+.logo{
+  font-family:'Sora',sans-serif;font-weight:800;font-size:1.25rem;
+  background:linear-gradient(90deg,var(--violet-soft),var(--cyan));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+nav ul{list-style:none;display:flex;align-items:center;gap:26px;}
+nav a{color:var(--muted);font-weight:600;}
+nav a:hover{color:#fff;}
+.dropdown{position:relative;}
+.dropdown-toggle{
+  display:inline-flex;align-items:center;gap:8px;
+  background:none;border:0;padding:0;
+  color:var(--muted);font:inherit;font-weight:600;cursor:pointer;
+}
+.dropdown-toggle:hover{color:#fff;}
+.dropdown-toggle .caret{font-size:.75rem;transform:translateY(1px);}
+.dropdown-menu{
+  position:absolute;top:calc(100% + 10px);left:0;min-width:240px;
+  background:#fff;color:#111;border:1px solid #ddd;border-radius:14px;
+  box-shadow:0 20px 45px rgba(0,0,0,.18);padding:10px;display:none;
+}
+.dropdown.open .dropdown-menu,.dropdown:focus-within .dropdown-menu{display:block;}
+.dropdown-menu a{
+  display:block;padding:12px 14px;border-radius:10px;color:#111;font-weight:600;
+}
+.dropdown-menu a:hover{background:#f4f4f8;color:#000;}
+
+.hero{
+  padding:74px 44px 40px;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(139,92,246,.24), transparent 30%),
+    radial-gradient(circle at 80% 30%, rgba(34,211,238,.16), transparent 28%);
+}
+.hero-shell{
+  max-width:1160px;margin:0 auto;
+  display:grid;grid-template-columns:1.12fr .88fr;gap:34px;align-items:center;
+}
+.hero-copy h1{font-size:clamp(2rem,4vw,3.35rem);margin-bottom:18px;max-width:820px;}
+.hero-copy p{color:var(--muted);font-size:1.04rem;margin-bottom:14px;max-width:760px;}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px;}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  border-radius:999px;padding:13px 24px;font-weight:700;
+}
+.btn-primary{background:linear-gradient(90deg,var(--violet),var(--cyan));color:#0c0a16;}
+.btn-secondary{border:1px solid var(--border);color:var(--text);background:rgba(255,255,255,.02);}
+.hero-visual{
+  background:linear-gradient(160deg,rgba(22,19,42,.95),rgba(19,16,34,.95));
+  border:1px solid var(--border);border-radius:24px;padding:16px;
+  box-shadow:0 22px 60px rgba(0,0,0,.25);
+}
+.hero-visual img{border-radius:18px;width:100%;height:auto;}
+
+main{max-width:1160px;margin:0 auto;padding:10px 44px 72px;}
+.feature-row{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:20px 0 62px;}
+.feature-card{
+  background:var(--card);border:1px solid var(--border);border-radius:18px;
+  padding:20px 18px;box-shadow:0 18px 45px rgba(0,0,0,.12);
+}
+.feature-card h3{font-size:1.05rem;margin-bottom:10px;}
+.feature-card p{color:var(--muted);font-size:.95rem;}
+
+.split{
+  display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:center;
+  margin-bottom:60px;
+}
+.split.reverse{grid-template-columns:1fr 1fr;}
+.media-card{
+  background:var(--card);border:1px solid var(--border);border-radius:22px;overflow:hidden;
+  box-shadow:0 20px 55px rgba(0,0,0,.14);
+}
+.media-card img{width:100%;height:auto;}
+.text-card h2{font-size:1.55rem;margin-bottom:14px;}
+.text-card p{color:var(--muted);margin-bottom:12px;}
+
+.block{margin-bottom:60px;}
+.block h2{font-size:1.6rem;margin-bottom:16px;}
+.block p{color:var(--muted);margin-bottom:12px;}
+
+.video-section,.embed-section,.faq-section{margin-bottom:60px;}
+.section-title{font-size:1.65rem;margin-bottom:16px;}
+.video-card{
+  background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:20px;box-shadow:0 20px 45px rgba(0,0,0,.12);
+  display:flex;justify-content:center;align-items:center;
+}
+.youtube-frame,.video-card iframe{
+  width:100% !important;
+  max-width:1120px;
+  aspect-ratio:16 / 9;
+  height:auto !important;
+  min-height:clamp(360px,52vw,620px);
+  display:block;
+  border:0;
+  border-radius:16px;
+  background:#000;
+}
+
+.embed-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.embed-card{
+  background:#fff;color:#111;border-radius:22px;padding:18px;box-shadow:0 20px 45px rgba(0,0,0,.12);
+}
+.embed-card h3{color:#111;font-family:'Sora',sans-serif;font-size:1.35rem;margin-bottom:14px;}
+.embed-card iframe{
+  width:100%;border:0;border-radius:16px;background:#fff;min-height:560px;
+}
+.embed-card.presentation iframe{min-height:560px;}
+.home-map-card{margin-top:20px;}
+.home-map-card iframe{min-height:520px;}
+
+.faq-list{display:grid;gap:12px;}
+.faq-item{
+  border:1px solid var(--border);border-radius:16px;background:var(--card);
+  overflow:hidden;
+}
+.faq-q{
+  width:100%;background:none;border:0;color:#fff;padding:18px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  font:700 1rem 'Inter',Arial,sans-serif;text-align:left;cursor:pointer;
+}
+.faq-q span{color:var(--cyan);font-size:1.25rem;transition:transform .2s ease;}
+.faq-item.open .faq-q span{transform:rotate(45deg);}
+.faq-a{
+  max-height:0;overflow:hidden;padding:0 20px;color:var(--muted);
+  transition:max-height .25s ease,padding .25s ease;
+}
+.faq-item.open .faq-a{max-height:260px;padding:0 20px 18px;}
+
+footer{
+  background:var(--bg-alt);border-top:1px solid var(--border);
+  padding:52px 44px 26px;
+}
+.footer-grid{
+  max-width:1160px;margin:0 auto;
+  display:grid;grid-template-columns:1.35fr .9fr .7fr;gap:34px;
+}
+.footer-col h4{font-size:1rem;margin-bottom:14px;color:#fff;}
+.footer-col p{color:var(--muted);max-width:340px;font-size:.95rem;}
+.footer-col ul{list-style:none;}
+.footer-col li{margin-bottom:10px;}
+.footer-col ul a{color:var(--muted);}
+.footer-col ul a:hover{color:var(--cyan);}
+.follow-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
+.follow-row a{
+  width:36px;height:36px;border-radius:50%;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);
+}
+.copyright{
+  max-width:1160px;margin:34px auto 0;padding-top:20px;border-top:1px solid var(--border);
+  text-align:center;color:var(--muted);font-size:.86rem;
+}
+
+@media (max-width: 980px){
+  header,main,footer,.hero{padding-left:20px;padding-right:20px;}
+  .hero-shell,.split,.embed-grid,.footer-grid,.feature-row{grid-template-columns:1fr;}
+  nav ul{gap:14px;flex-wrap:wrap;justify-content:flex-end;}
+  .dropdown-menu{left:auto;right:0;}
+  .hero{padding-top:58px;}
+  .youtube-frame,.video-card iframe{min-height:220px;}
+}
+
+.logo img{height:46px;max-width:190px;object-fit:contain;display:block;}
+.logo span{display:inline-block;}
+
+.article-block{max-width:820px;margin-left:auto;margin-right:auto;}
+.article-image{max-width:920px;margin:0 auto 60px;}
+.article-image img{width:100%;height:auto;}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html">{{LOGO_MARKUP}}</a>
+  <nav>
+    <ul>
+      <li><a href="index.html" class="active">Home</a></li>
+      <li class="dropdown">
+        <button type="button" class="dropdown-toggle" id="services-toggle" aria-expanded="false">
+          Services <span class="caret">&#9662;</span>
+        </button>
+        <div class="dropdown-menu">
+          {{SERVICES_NAV_ITEMS}}
+        </div>
+      </li>
+      <li><a href="about-us.html">About Us</a></li>
+      <li><a href="contact-us.html">Contact Us</a></li>
+    </ul>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-shell">
+    <div class="hero-copy">
+      <h1>{{HERO_TITLE}}</h1>
+      <p>{{HERO_DESCRIPTION_1}}</p>
+      <p>{{HERO_DESCRIPTION_2}}</p>
+    </div>
+    <div class="hero-visual">
+      <img src="hero-chat.png" alt="Futuristic AI chat interface">
+    </div>
+  </div>
+</section>
+
+<main>
+  {{HOME_CONTENT}}
+  <section class="block">
+    <h2>YouTube Video</h2>
+    <div class="video-card" style="margin-top:16px;">
+      {{YOUTUBE_EMBED}}
+    </div>
+  </section>
+  <section class="embed-section">
+    <h2 class="section-title">Google Embeds</h2>
+    <div class="embed-grid">
+      <div class="embed-card"><h3>Google Docs</h3>{{GOOGLE_DOCS_EMBED}}</div>
+      <div class="embed-card presentation"><h3>Google Presentation</h3>{{GOOGLE_PRESENTATION_EMBED}}</div>
+    </div>
+    {{HOME_MAP_EMBED}}
+  </section>
+  <section class="faq-section">
+    <h2 class="section-title">Frequently Asked Questions</h2>
+    <div class="faq-list" id="faq-list">
+      <div class="faq-item"><button class="faq-q" type="button">{{FAQ_1_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_1_ANSWER}}</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">{{FAQ_2_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_2_ANSWER}}</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">{{FAQ_3_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_3_ANSWER}}</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">{{FAQ_4_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_4_ANSWER}}</p></div></div>
+      <div class="faq-item"><button class="faq-q" type="button">{{FAQ_5_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_5_ANSWER}}</p></div></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <h4>About</h4>
+      <p>{{ABOUT_DESCRIPTION_1}}</p>
+    </div>
+    <div class="footer-col">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about-us.html">About Us</a></li>
+        <li><a href="{{SERVICES_INDEX_URL}}">Services</a></li>
+        <li><a href="contact-us.html">Contact Us</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Follow Us</h4>
+      <div class="follow-row">
+        <a href="#" aria-label="LinkedIn">in</a>
+        <a href="#" aria-label="Instagram">ig</a>
+        <a href="#" aria-label="X">x</a>
+      </div>
+    </div>
+  </div>
+  <div class="copyright">&copy; 2026 {{BUSINESS_NAME}}. All rights reserved.</div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-item .faq-q').forEach((button) => {
+  button.addEventListener('click', () => {
+    const item = button.parentElement;
+    item.classList.toggle('open');
+  });
+});
+const servicesToggle = document.getElementById('services-toggle');
+const servicesDropdown = servicesToggle?.closest('.dropdown');
+if (servicesToggle && servicesDropdown) {
+  servicesToggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = servicesDropdown.classList.toggle('open');
+    servicesToggle.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (event) => {
+    if (!servicesDropdown.contains(event.target)) {
+      servicesDropdown.classList.remove('open');
+      servicesToggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+</script>
+</body>
+</html>
+
+
+
+
