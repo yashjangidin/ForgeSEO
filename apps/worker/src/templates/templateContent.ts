@@ -13,6 +13,7 @@ export interface TemplateContent {
   youtubeEmbedCode: string;
   googleDocsEmbedCode: string;
   googlePresentationEmbedCode: string;
+  googleSheetsEmbedCode: string;
   mapEmbedCode: string;
   contact: {
     phone?: string;
@@ -173,10 +174,26 @@ const contactMap = (mapEmbedCode?: string): string => `
         ${mapEmbedCode?.trim() || '<p class="sub">Map embed code was not provided.</p>'}
       </div>`;
 
-const homeMapEmbed = (mapEmbedCode?: string): string =>
-  mapEmbedCode?.trim()
-    ? `<div class="embed-card home-map-card"><h3>Location Map</h3>${mapEmbedCode.trim()}</div>`
+const homeEmbedCard = (title: string, embedCode?: string, className = ""): string => {
+  const embed = embedCode?.trim();
+  return embed ? `<div class="embed-card${className ? ` ${className}` : ""}"><h3>${escapeHtml(title)}</h3>${embed}</div>` : "";
+};
+
+const homeEmbedCluster = (content: Pick<TemplateContent, "googleDocsEmbedCode" | "googlePresentationEmbedCode" | "googleSheetsEmbedCode" | "mapEmbedCode">): string => {
+  const cards = [
+    homeEmbedCard("Google Docs", content.googleDocsEmbedCode),
+    homeEmbedCard("Google Presentation", content.googlePresentationEmbedCode, "presentation"),
+    homeEmbedCard("Google Sheets", content.googleSheetsEmbedCode),
+    homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card")
+  ].filter(Boolean);
+
+  return cards.length
+    ? `<section class="embed-section">
+    <h2 class="section-title">Google Embeds</h2>
+    <div class="embed-grid">${cards.join("")}</div>
+  </section>`
     : "";
+};
 
 const inferBusinessTerms = (config: WizardConfig): string[] => {
   const words = config.businessDescription
@@ -314,6 +331,18 @@ const articleImage = (src: string, alt: string): string => `
 
 const configuredImageCount = (value: number | undefined): number => Math.max(0, Math.min(20, value ?? 3));
 
+const sharedArticleImages = [
+  "creative-storytelling.png",
+  "idea-exploration.png",
+  "privacy-chat.png",
+  "hero-chat.png"
+];
+
+const sharedImagePool = (config: WizardConfig): string[] => {
+  const imageLimit = Math.max(configuredImageCount(config.homeImageCount), configuredImageCount(config.serviceImageCount));
+  return Array.from({ length: imageLimit }, (_, index) => sharedArticleImages[index % sharedArticleImages.length]!);
+};
+
 const contentBlock = (heading: string, body: string): string => `
   <section class="block article-block">
     <h2>${escapeHtml(heading)}</h2>
@@ -334,9 +363,14 @@ This page also supports trust by giving the business a fuller explanation. Inste
 
 export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent["homePages"]>[number], config: WizardConfig): string => {
   const imageLimit = configuredImageCount(config.homeImageCount);
+  const images = sharedImagePool(config).slice(0, imageLimit);
   let insertedImages = 0;
-  const addImage = (src: string, alt: string): string => {
+  const addImage = (alt: string): string => {
     if (insertedImages >= imageLimit) {
+      return "";
+    }
+    const src = images[insertedImages % images.length];
+    if (!src) {
       return "";
     }
     insertedImages += 1;
@@ -345,15 +379,20 @@ export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent
 
   return `
   ${contentBlock(content.title, homeSectionBody(`${content.intro}\n${config.businessDescription}`, config, content.title))}
-  ${addImage("creative-storytelling.png", content.title)}
-  ${content.sections.map((section, index) => `${contentBlock(section.heading, homeSectionBody(section.body, config, section.heading))}${addImage(index % 3 === 0 ? "idea-exploration.png" : index % 3 === 1 ? "privacy-chat.png" : "hero-chat.png", section.heading)}`).join("")}`;
+  ${addImage(content.title)}
+  ${content.sections.map((section) => `${contentBlock(section.heading, homeSectionBody(section.body, config, section.heading))}${addImage(section.heading)}`).join("")}`;
 };
 
 export const structuredServiceContentToHtml = (content: NonNullable<TemplateContent["servicePages"]>[number], config: WizardConfig): string => {
   const imageLimit = configuredImageCount(config.serviceImageCount);
+  const images = sharedImagePool(config).slice(0, imageLimit);
   let insertedImages = 0;
-  const addImage = (src: string, alt: string): string => {
+  const addImage = (alt: string): string => {
     if (insertedImages >= imageLimit) {
+      return "";
+    }
+    const src = images[insertedImages % images.length];
+    if (!src) {
       return "";
     }
     insertedImages += 1;
@@ -362,8 +401,8 @@ export const structuredServiceContentToHtml = (content: NonNullable<TemplateCont
 
   return `
   ${contentBlock(content.title, serviceSectionBody(content.intro, config, content.keyword))}
-  ${addImage("privacy-chat.png", content.title)}
-  ${content.sections.map((section, index) => `${contentBlock(section.heading, serviceSectionBody(section.body, config, content.keyword))}${addImage(index % 3 === 0 ? "creative-storytelling.png" : index % 3 === 1 ? "idea-exploration.png" : "hero-chat.png", section.heading)}`).join("")}`;
+  ${addImage(content.title)}
+  ${content.sections.map((section) => `${contentBlock(section.heading, serviceSectionBody(section.body, config, content.keyword))}${addImage(section.heading)}`).join("")}`;
 };
 
 export const structuredAboutContentToHtml = (content: TemplateContent["about"], config: WizardConfig): string => {
@@ -429,7 +468,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
   const servicesContent = structuredServiceContentToHtml(servicePages[0] ?? servicePageFromKeyword(config, primaryService, [primaryService]), config);
   const aboutContent = structuredAboutContentToHtml({ title: `About ${config.businessName}`, description: aboutDescription }, config);
   const contactMode = config.contactMode ?? "form";
-  const selectedMapEmbedCode = contactMode === "form-map" || contactMode === "details-map" ? userProvidedEmbed(config.mapEmbedCode) : "";
+  const selectedMapEmbedCode = userProvidedEmbed(config.mapEmbedCode);
   const contactContentBase: TemplateContent = {
     businessName: config.businessName,
     logoMarkup,
@@ -441,6 +480,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     youtubeEmbedCode: "",
     googleDocsEmbedCode: "",
     googlePresentationEmbedCode: "",
+    googleSheetsEmbedCode: "",
     mapEmbedCode: "",
     contact: {
       phone: config.contactPhone,
@@ -485,6 +525,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     youtubeEmbedCode: userProvidedEmbed(config.youtubeEmbedCode),
     googleDocsEmbedCode: userProvidedEmbed(config.googleDocsEmbedCode),
     googlePresentationEmbedCode: userProvidedEmbed(config.googlePresentationEmbedCode),
+    googleSheetsEmbedCode: userProvidedEmbed(config.googleSheetsEmbedCode),
     mapEmbedCode: selectedMapEmbedCode,
     contact: {
       phone: config.contactPhone,
@@ -573,7 +614,9 @@ export const flattenTemplateContent = (content: TemplateContent): Record<string,
     YOUTUBE_EMBED: content.youtubeEmbedCode,
     GOOGLE_DOCS_EMBED: content.googleDocsEmbedCode,
     GOOGLE_PRESENTATION_EMBED: content.googlePresentationEmbedCode,
-    HOME_MAP_EMBED: homeMapEmbed(content.mapEmbedCode),
+    GOOGLE_SHEETS_EMBED: content.googleSheetsEmbedCode,
+    HOME_MAP_EMBED: homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card"),
+    HOME_EMBEDS: homeEmbedCluster(content),
     PHONE: content.contact.phone,
     EMAIL: content.contact.email,
     ADDRESS: content.contact.address,

@@ -93,6 +93,7 @@ export interface WizardConfig {
   youtubeEmbedCode?: string;
   googleDocsEmbedCode?: string;
   googlePresentationEmbedCode?: string;
+  googleSheetsEmbedCode?: string;
   anchorLinks?: AnchorLink[];
   anchorText?: string;
   anchorUrl?: string;

@@ -57,18 +57,6 @@ footer{background:#050505;color:#fff;padding:48px 42px}.footer-grid{max-width:98
     <p>{{HERO_DESCRIPTION_2}}</p>
   </section>
   <div class="content">{{HOME_CONTENT}}</div>
-  <section class="video-block">
-    <h2>YouTube Video</h2>
-    <div class="video-card">{{YOUTUBE_EMBED}}</div>
-  </section>
-  <section class="embed-section">
-    <h2>Google Embeds</h2>
-    <div class="embed-grid">
-      <div class="embed-card"><h3>Google Docs</h3>{{GOOGLE_DOCS_EMBED}}</div>
-      <div class="embed-card"><h3>Google Presentation</h3>{{GOOGLE_PRESENTATION_EMBED}}</div>
-    </div>
-    {{HOME_MAP_EMBED}}
-  </section>
   <section class="faq-section">
     <h2>Frequently Asked Questions</h2>
     <div class="faq-list">
@@ -79,6 +67,11 @@ footer{background:#050505;color:#fff;padding:48px 42px}.footer-grid{max-width:98
       <div class="faq-item"><button class="faq-q">{{FAQ_5_QUESTION}}<span>+</span></button><div class="faq-a">{{FAQ_5_ANSWER}}</div></div>
     </div>
   </section>
+  <section class="video-block">
+    <h2>YouTube Video</h2>
+    <div class="video-card">{{YOUTUBE_EMBED}}</div>
+  </section>
+  {{HOME_EMBEDS}}
 </main>
 <footer>
   <div class="footer-grid">

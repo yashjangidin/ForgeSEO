@@ -28,6 +28,7 @@
     { "key": "TWITTER_DESCRIPTION", "required": true },
     { "key": "SCHEMA", "required": true, "raw": true },
     { "key": "HOME_CONTENT", "required": true, "raw": true },
+    { "key": "HOME_EMBEDS", "required": false, "raw": true },
     { "key": "HOME_MAP_EMBED", "required": false, "raw": true },
     { "key": "SERVICES_CONTENT", "required": true, "raw": true },
     { "key": "ABOUT_CONTENT", "required": true, "raw": true },
@@ -51,6 +52,7 @@
     { "key": "DROPDOWN_LABEL", "required": true },
     { "key": "YOUTUBE_EMBED", "required": false, "raw": true },
     { "key": "GOOGLE_DOCS_EMBED", "required": false, "raw": true },
-    { "key": "GOOGLE_PRESENTATION_EMBED", "required": false, "raw": true }
+    { "key": "GOOGLE_PRESENTATION_EMBED", "required": false, "raw": true },
+    { "key": "GOOGLE_SHEETS_EMBED", "required": false, "raw": true }
   ]
 }

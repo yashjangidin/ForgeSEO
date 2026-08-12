@@ -259,6 +259,7 @@ export class ProjectService {
       youtubeEmbedCode: input.youtubeEmbedCode || undefined,
       googleDocsEmbedCode: input.googleDocsEmbedCode || undefined,
       googlePresentationEmbedCode: input.googlePresentationEmbedCode || undefined,
+      googleSheetsEmbedCode: input.googleSheetsEmbedCode || undefined,
       anchorLinks: anchorLinks.length ? anchorLinks : undefined,
       anchorText: undefined,
       anchorUrl: undefined,

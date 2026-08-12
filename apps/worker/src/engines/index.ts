@@ -83,6 +83,7 @@ const structuredContentContract = `{
   "youtubeEmbedCode": "string",
   "googleDocsEmbedCode": "string",
   "googlePresentationEmbedCode": "string",
+  "googleSheetsEmbedCode": "string",
   "mapEmbedCode": "string",
   "hero": { "title": "string", "description": ["string", "string"], "cta": "string" },
   "about": { "title": "string", "description": ["8 or 9 paragraph strings"] },
@@ -436,11 +437,22 @@ const insertAnchorInFirstH1 = (html: string, anchor: AnchorLink): { html: string
     return { html, inserted: false };
   }
 
-  const replacement = `<h1${match[1] ?? ""}><a href="${escapeAttribute(anchor.url)}">${match[2]}</a></h1>`;
+  const replacement = `<h1${match[1] ?? ""}><a href="${escapeAttribute(anchor.url)}">${escapeHtmlText(anchor.text)}</a></h1>`;
   return {
     html: `${html.slice(0, match.index)}${replacement}${html.slice(match.index + match[0].length)}`,
     inserted: true
   };
+};
+
+const anchorContentBlock = (anchor: AnchorLink): string => `
+  <section class="block article-block">
+    <h2><a href="${escapeAttribute(anchor.url)}">${escapeHtmlText(anchor.text)}</a></h2>
+  </section>`;
+
+const insertAnchorBlockBeforeMedia = (html: string, anchor: AnchorLink): string => {
+  const marker = html.search(/<section\s+class=["'][^"']*(?:faq-section|video-section|video-block|embed-section)\b/i);
+  const block = anchorContentBlock(anchor);
+  return marker >= 0 ? `${html.slice(0, marker)}${block}${html.slice(marker)}` : `${html}${block}`;
 };
 
 const insertHomePageAnchors = (html: string, anchors: AnchorLink[], insertedIndexes: Set<number>): string => {
@@ -450,10 +462,7 @@ const insertHomePageAnchors = (html: string, anchors: AnchorLink[], insertedInde
       continue;
     }
     const result = index === 0 ? insertAnchorInFirstH1(currentHtml, anchor) : insertFirstAnchor(currentHtml, anchor);
-    if (!result.inserted) {
-      continue;
-    }
-    currentHtml = result.html;
+    currentHtml = result.inserted ? result.html : insertAnchorBlockBeforeMedia(currentHtml, anchor);
     insertedIndexes.add(index);
   }
 
@@ -490,6 +499,7 @@ Home page style: long-form SEO/editorial article like the provided Home-page-1.d
 Service page style: long-form service guide like the provided Services drop down button 1.docx sample. Generate one servicePages item for every keyword inside every serviceKeywordGroups item. Each keyword is a separate Services dropdown option, a separate service page file, and needs its own distinct service page content with 7 to 9 clear sections. Each section body should be 70 to 110 words.
 About page style: same length and style as the provided About_us_content.docx sample. Generate one common about object for every generated website, with 8 to 9 detailed description paragraphs of 70 to 100 words each.
 Always generate exactly 5 FAQ items.
+If business profile includes anchorLinks, include every anchorLinks.text exact phrase naturally in the home page content. The first anchorLinks item must be suitable as the exact home page H1.
 Return a complete JSON object matching this contract. Do not truncate strings. Keep pageContent values empty strings because the renderer builds HTML.
 Business profile:
 ${JSON.stringify(state.wizardConfig, null, 2)}
@@ -510,6 +520,7 @@ ${structuredContentContract}
       youtubeEmbedCode: state.wizardConfig.youtubeEmbedCode?.trim() ?? fallback.youtubeEmbedCode,
       googleDocsEmbedCode: state.wizardConfig.googleDocsEmbedCode?.trim() ?? fallback.googleDocsEmbedCode,
       googlePresentationEmbedCode: state.wizardConfig.googlePresentationEmbedCode?.trim() ?? fallback.googlePresentationEmbedCode,
+      googleSheetsEmbedCode: state.wizardConfig.googleSheetsEmbedCode?.trim() ?? fallback.googleSheetsEmbedCode,
       mapEmbedCode: state.wizardConfig.mapEmbedCode?.trim() ?? fallback.mapEmbedCode,
       contact: { ...fallback.contact, ...content.contact },
       hero: { ...fallback.hero, ...content.hero },
@@ -575,7 +586,6 @@ export class TemplateRendererEngine implements GenerationEngineRunner {
     if (eligibleTemplates.length === 0) {
       throw new Error("The selected templates do not support the selected pages.");
     }
-    const insertedAnchorIndexes = new Set<number>();
     const renderTargets: Array<{ template: SelectedTemplate; prefix: string; templateIndex: number; pageNumber: number }> = [];
 
     let pageNumber = 1;
@@ -601,6 +611,7 @@ export class TemplateRendererEngine implements GenerationEngineRunner {
     const assets: GeneratedAsset[] = [];
 
     for (const target of renderTargets) {
+      const insertedAnchorIndexes = new Set<number>();
       const targetServiceKeywords = serviceKeywordGroups[target.pageNumber - 1] ?? serviceKeywordGroups[0] ?? templateContent.serviceKeywords;
       const targetTemplateContent = contentForRenderTarget(state.wizardConfig, templateContent, targetServiceKeywords, target.pageNumber - 1);
       const targetValues = flattenTemplateContent(targetTemplateContent);

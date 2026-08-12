@@ -237,20 +237,6 @@ footer{
 
 <main>
   {{HOME_CONTENT}}
-  <section class="block">
-    <h2>YouTube Video</h2>
-    <div class="video-card" style="margin-top:16px;">
-      {{YOUTUBE_EMBED}}
-    </div>
-  </section>
-  <section class="embed-section">
-    <h2 class="section-title">Google Embeds</h2>
-    <div class="embed-grid">
-      <div class="embed-card"><h3>Google Docs</h3>{{GOOGLE_DOCS_EMBED}}</div>
-      <div class="embed-card presentation"><h3>Google Presentation</h3>{{GOOGLE_PRESENTATION_EMBED}}</div>
-    </div>
-    {{HOME_MAP_EMBED}}
-  </section>
   <section class="faq-section">
     <h2 class="section-title">Frequently Asked Questions</h2>
     <div class="faq-list" id="faq-list">
@@ -261,6 +247,13 @@ footer{
       <div class="faq-item"><button class="faq-q" type="button">{{FAQ_5_QUESTION}}<span>+</span></button><div class="faq-a"><p>{{FAQ_5_ANSWER}}</p></div></div>
     </div>
   </section>
+  <section class="block">
+    <h2>YouTube Video</h2>
+    <div class="video-card" style="margin-top:16px;">
+      {{YOUTUBE_EMBED}}
+    </div>
+  </section>
+  {{HOME_EMBEDS}}
 </main>
 
 <footer>

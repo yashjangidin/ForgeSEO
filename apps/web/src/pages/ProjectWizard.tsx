@@ -30,6 +30,7 @@ interface WizardFormState {
   youtubeEmbedCode: string;
   googleDocsEmbedCode: string;
   googlePresentationEmbedCode: string;
+  googleSheetsEmbedCode: string;
   anchorLinks: Array<{ text: string; url: string }>;
   selectedPages: WebsitePageKind[];
 }
@@ -58,6 +59,7 @@ const initialForm: WizardFormState = {
   youtubeEmbedCode: "",
   googleDocsEmbedCode: "",
   googlePresentationEmbedCode: "",
+  googleSheetsEmbedCode: "",
   anchorLinks: [{ text: "", url: "" }],
   selectedPages: ["home", "services", "about", "contact"]
 };
@@ -240,6 +242,7 @@ export const ProjectWizard = (): ReactElement => {
     youtubeEmbedCode: form.youtubeEmbedCode || undefined,
     googleDocsEmbedCode: form.googleDocsEmbedCode || undefined,
     googlePresentationEmbedCode: form.googlePresentationEmbedCode || undefined,
+    googleSheetsEmbedCode: form.googleSheetsEmbedCode || undefined,
     selectedPages: form.selectedPages,
     anchorLinks: form.anchorLinks
       .map((anchor) => ({ text: anchor.text.trim(), url: anchor.url.trim() }))
@@ -397,7 +400,7 @@ export const ProjectWizard = (): ReactElement => {
             </div>
           ) : null}
           {contactModeUsesMap ? (
-            <textarea required className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Maps iframe embed code" value={form.mapEmbedCode} onChange={(event) => update("mapEmbedCode", event.target.value)} />
+            <p className="rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">The optional Google Maps iframe from Embeds is used for this contact layout.</p>
           ) : null}
         </section>
 
@@ -413,6 +416,8 @@ export const ProjectWizard = (): ReactElement => {
           <div className="grid gap-4 lg:grid-cols-2">
             <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Docs iframe embed code" value={form.googleDocsEmbedCode} onChange={(event) => update("googleDocsEmbedCode", event.target.value)} />
             <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Presentation iframe embed code" value={form.googlePresentationEmbedCode} onChange={(event) => update("googlePresentationEmbedCode", event.target.value)} />
+            <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Sheets iframe embed code" value={form.googleSheetsEmbedCode} onChange={(event) => update("googleSheetsEmbedCode", event.target.value)} />
+            <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Maps iframe embed code" value={form.mapEmbedCode} onChange={(event) => update("mapEmbedCode", event.target.value)} />
           </div>
         </section>
 
