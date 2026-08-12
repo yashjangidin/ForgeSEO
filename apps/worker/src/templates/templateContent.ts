@@ -102,6 +102,9 @@ const escapeHtml = (input: string | undefined): string =>
 
 const escapeAttribute = (input: string | undefined): string => escapeHtml(input);
 
+const escapeHtmlWithLineBreaks = (input: string | undefined): string =>
+  escapeHtml(input).replace(/\r?\n/g, "<br>");
+
 const paragraphs = (items: string[]): string => items.map((item) => `<p>${escapeHtml(item)}</p>`).join("");
 
 const userProvidedEmbed = (input: string | undefined): string => input?.trim() ?? "";
@@ -200,7 +203,7 @@ const contactDetails = (content: Pick<TemplateContent, "businessName" | "contact
     content.contact.websiteUrl ? ["Website", content.contact.websiteUrl] : undefined
   ].filter((item): item is string[] => Boolean(item));
   const rows = details.length
-    ? details.map(([label, value]) => `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></li>`).join("")
+    ? details.map(([label, value]) => `<li><strong>${escapeHtml(label)}</strong><span>${escapeHtmlWithLineBreaks(value)}</span></li>`).join("")
     : `<li><strong>Contact</strong><span>${escapeHtml(`Send your enquiry to ${content.businessName}.`)}</span></li>`;
 
   return `
@@ -227,13 +230,15 @@ const homeEmbedCluster = (content: Pick<TemplateContent, "googleDocsEmbedCode" |
     homeEmbedCard("Google Docs", content.googleDocsEmbedCode),
     homeEmbedCard("Google Presentation", content.googlePresentationEmbedCode, "presentation"),
     homeEmbedCard("Google Sheets", content.googleSheetsEmbedCode),
-    homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card")
+    homeEmbedCard("Location Map", content.mapEmbedCode)
   ].filter(Boolean);
+  const largeMap = homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card");
 
   return cards.length
     ? `<section class="embed-section">
     <h2 class="section-title">Google Embeds</h2>
     <div class="embed-grid">${cards.join("")}</div>
+    ${largeMap}
   </section>`
     : "";
 };

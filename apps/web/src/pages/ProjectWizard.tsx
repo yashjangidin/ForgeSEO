@@ -429,8 +429,8 @@ export const ProjectWizard = (): ReactElement => {
             <div className="grid gap-4 rounded border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
               <input className="rounded border border-slate-300 px-3 py-2" placeholder="Contact email" value={form.contactEmail} onChange={(event) => update("contactEmail", event.target.value)} />
               <input className="rounded border border-slate-300 px-3 py-2" placeholder="Contact phone" value={form.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} />
-              <input className="rounded border border-slate-300 px-3 py-2" placeholder="Address" value={form.contactAddress} onChange={(event) => update("contactAddress", event.target.value)} />
-              <input className="rounded border border-slate-300 px-3 py-2" placeholder="Opening hours" value={form.contactHours} onChange={(event) => update("contactHours", event.target.value)} />
+              <textarea className="min-h-20 rounded border border-slate-300 px-3 py-2" placeholder={"Address line 1\nAddress line 2"} value={form.contactAddress} onChange={(event) => update("contactAddress", event.target.value)} />
+              <textarea className="min-h-20 rounded border border-slate-300 px-3 py-2" placeholder={"Mon-Fri: 9 AM - 6 PM\nSat: 10 AM - 2 PM"} value={form.contactHours} onChange={(event) => update("contactHours", event.target.value)} />
             </div>
           ) : null}
           {contactModeUsesMap ? (
