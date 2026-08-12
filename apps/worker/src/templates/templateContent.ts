@@ -19,7 +19,6 @@ export interface TemplateContent {
   socialLinks: Array<{
     platform: SocialPlatform;
     label: string;
-    shortLabel: string;
     url: string;
   }>;
   contact: {
@@ -110,23 +109,48 @@ const paragraphs = (items: string[]): string => items.map((item) => `<p>${escape
 
 const userProvidedEmbed = (input: string | undefined): string => input?.trim() ?? "";
 const logoDataUrlMaxLength = 7_000_000;
-const socialMeta: Record<SocialPlatform, { label: string; shortLabel: string }> = {
-  linkedin: { label: "LinkedIn", shortLabel: "in" },
-  instagram: { label: "Instagram", shortLabel: "ig" },
-  x: { label: "X", shortLabel: "x" },
-  facebook: { label: "Facebook", shortLabel: "fb" },
-  youtube: { label: "YouTube", shortLabel: "yt" }
+const socialMeta: Record<SocialPlatform, { label: string; icon: string }> = {
+  linkedin: {
+    label: "LinkedIn",
+    icon: '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8h4v15h-4V8zm7 0h3.8v2.05h.05c.53-1 1.82-2.05 3.75-2.05 4.01 0 4.75 2.64 4.75 6.07V23h-4v-7.92c0-1.89-.03-4.32-2.63-4.32-2.64 0-3.04 2.06-3.04 4.18V23h-4V8z"/></svg>'
+  },
+  instagram: {
+    label: "Instagram",
+    icon: '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7.75 2h8.5A5.76 5.76 0 0 1 22 7.75v8.5A5.76 5.76 0 0 1 16.25 22h-8.5A5.76 5.76 0 0 1 2 16.25v-8.5A5.76 5.76 0 0 1 7.75 2zm0 2A3.75 3.75 0 0 0 4 7.75v8.5A3.75 3.75 0 0 0 7.75 20h8.5A3.75 3.75 0 0 0 20 16.25v-8.5A3.75 3.75 0 0 0 16.25 4h-8.5zM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm5.25-2.7a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4z"/></svg>'
+  },
+  x: {
+    label: "X",
+    icon: '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.9 2h3.3l-7.2 8.23L23.5 22h-6.65l-5.2-6.8L5.7 22H2.4l7.7-8.8L2 2h6.82l4.7 6.22L18.9 2zm-1.16 17.93h1.83L7.82 3.96H5.86l11.88 15.97z"/></svg>'
+  },
+  facebook: {
+    label: "Facebook",
+    icon: '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 12.06C22 6.48 17.52 2 11.94 2S2 6.48 2 12.06c0 5.03 3.68 9.2 8.5 9.94v-7.03H7.98v-2.91h2.52V9.84c0-2.49 1.48-3.86 3.75-3.86 1.09 0 2.23.2 2.23.2v2.45h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.91h-2.34V22c4.82-.74 8.41-4.91 8.41-9.94z"/></svg>'
+  },
+  youtube: {
+    label: "YouTube",
+    icon: '<svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.12C19.55 3.58 12 3.58 12 3.58s-7.55 0-9.4.5A3 3 0 0 0 .5 6.2 31.2 31.2 0 0 0 0 12a31.2 31.2 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.12c1.85.5 9.4.5 9.4.5s7.55 0 9.4-.5a3 3 0 0 0 2.1-2.12A31.2 31.2 0 0 0 24 12a31.2 31.2 0 0 0-.5-5.8zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>'
+  }
 };
+
+const limitWords = (input: string, maxWords: number): string => {
+  const words = sentence(input).split(/\s+/).filter(Boolean);
+  const limited = words.slice(0, maxWords).join(" ");
+  return words.length > maxWords ? `${limited.replace(/[.,;:!?]+$/, "")}.` : limited;
+};
+
+const wordCount = (input: string): number => sentence(input).split(/\s+/).filter(Boolean).length;
 
 const footerDescription = (content: TemplateContent): string => {
   const primaryDescription = content.hero.description.find((item) => item.trim().length > 80)
     ?? content.about.description.find((item) => item.trim().length > 80)
     ?? content.seo.metaDescription
     ?? content.tagline;
+  const base = limitWords(primaryDescription, 30);
   const servicePhrase = content.serviceKeywords.length
-    ? ` Visitors can explore ${content.serviceKeywords.slice(0, 3).join(", ").toLowerCase()} and use the contact page when they are ready to take the next step.`
-    : " Visitors can explore the service pages and use the contact page when they are ready to take the next step.";
-  return `${sentence(primaryDescription)}${servicePhrase}`;
+    ? `Explore ${content.serviceKeywords.slice(0, 2).join(" and ").toLowerCase()} or contact the team for next steps.`
+    : "Explore the services or contact the team for next steps.";
+  const combined = `${base} ${servicePhrase}`;
+  return wordCount(combined) <= 40 ? combined : base;
 };
 
 const validLogoDataUrl = (input: string | undefined): string | undefined => {
@@ -172,7 +196,6 @@ const configuredSocialLinks = (config: WizardConfig): TemplateContent["socialLin
     links.push({
       platform: social.platform,
       label: socialMeta[social.platform].label,
-      shortLabel: socialMeta[social.platform].shortLabel,
       url
     });
     return links;
@@ -180,7 +203,7 @@ const configuredSocialLinks = (config: WizardConfig): TemplateContent["socialLin
 
 const socialLinksMarkup = (links: TemplateContent["socialLinks"]): string =>
   links
-    .map((link) => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(link.label)}">${escapeHtml(link.shortLabel)}</a>`)
+    .map((link) => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(link.label)}" title="${escapeAttribute(link.label)}">${socialMeta[link.platform].icon}</a>`)
     .join("\n        ");
 
 const socialSectionMarkup = (links: TemplateContent["socialLinks"]): string =>
