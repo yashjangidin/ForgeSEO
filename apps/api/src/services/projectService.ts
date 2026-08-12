@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Transaction } from "firebase-admin/firestore";
-import { COLLECTIONS, ENGINE_ORDER, type GenerationJob, type Project, type ProjectWizardConfig, type StartGenerationRequest, type StartGenerationResponse, type WizardConfig } from "@forgeseo/shared";
+import { COLLECTIONS, ENGINE_ORDER, type GenerationEngine, type GenerationJob, type Project, type ProjectWizardConfig, type StartGenerationRequest, type StartGenerationResponse, type WizardConfig } from "@forgeseo/shared";
 import { config, getCapabilityState } from "../config.js";
 import { PublicError } from "../middleware/errors.js";
 import { scaleWorkerPool } from "./cloudRunWorkerScaler.js";
@@ -104,7 +104,7 @@ export class ProjectService {
         }
       ],
       errors: [],
-      checkpoints: ENGINE_ORDER.map((engine) => ({
+      checkpoints: ENGINE_ORDER.map((engine: GenerationEngine) => ({
         engine,
         status: "pending"
       }))
@@ -255,7 +255,7 @@ export class ProjectService {
       .flatMap((group) => group.keywords)
       .reduce<string[]>((keywords, keyword) => {
         const normalized = keyword?.trim();
-        if (!normalized || keywords.some((item) => item.toLowerCase() === normalized.toLowerCase())) {
+        if (!normalized || keywords.some((item: string) => item.toLowerCase() === normalized.toLowerCase())) {
           return keywords;
         }
         keywords.push(normalized);
