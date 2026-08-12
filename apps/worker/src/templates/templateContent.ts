@@ -15,6 +15,7 @@ export interface TemplateContent {
   googlePresentationEmbedCode: string;
   googleSheetsEmbedCode: string;
   mapEmbedCode: string;
+  contactMapEmbedCode: string;
   socialLinks: Array<{
     platform: SocialPlatform;
     label: string;
@@ -225,19 +226,29 @@ const homeEmbedCard = (title: string, embedCode?: string, className = ""): strin
   return embed ? `<div class="embed-card${className ? ` ${className}` : ""}"><h3>${escapeHtml(title)}</h3>${embed}</div>` : "";
 };
 
-const homeEmbedCluster = (content: Pick<TemplateContent, "googleDocsEmbedCode" | "googlePresentationEmbedCode" | "googleSheetsEmbedCode" | "mapEmbedCode">): string => {
+const homeVideoSection = (embedCode?: string): string => {
+  const embed = embedCode?.trim();
+  return embed
+    ? `<section class="block video-block">
+    <h2>YouTube Video</h2>
+    <div class="video-card">${embed}</div>
+  </section>`
+    : "";
+};
+
+const homeEmbedCluster = (content: Pick<TemplateContent, "googleDocsEmbedCode" | "googlePresentationEmbedCode" | "googleSheetsEmbedCode" | "mapEmbedCode" | "contactMapEmbedCode">): string => {
   const cards = [
     homeEmbedCard("Google Docs", content.googleDocsEmbedCode),
     homeEmbedCard("Google Presentation", content.googlePresentationEmbedCode, "presentation"),
     homeEmbedCard("Google Sheets", content.googleSheetsEmbedCode),
     homeEmbedCard("Location Map", content.mapEmbedCode)
   ].filter(Boolean);
-  const largeMap = homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card");
+  const largeMap = homeEmbedCard("Location Map", content.contactMapEmbedCode || content.mapEmbedCode, "home-map-card");
 
-  return cards.length
+  return cards.length || largeMap
     ? `<section class="embed-section">
     <h2 class="section-title">Google Embeds</h2>
-    <div class="embed-grid">${cards.join("")}</div>
+    ${cards.length ? `<div class="embed-grid">${cards.join("")}</div>` : ""}
     ${largeMap}
   </section>`
     : "";
@@ -517,6 +528,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
   const aboutContent = structuredAboutContentToHtml({ title: `About ${config.businessName}`, description: aboutDescription }, config);
   const contactMode = config.contactMode ?? "form";
   const selectedMapEmbedCode = userProvidedEmbed(config.mapEmbedCode);
+  const selectedContactMapEmbedCode = userProvidedEmbed(config.contactMapEmbedCode) || selectedMapEmbedCode;
   const contactContentBase: TemplateContent = {
     businessName: config.businessName,
     logoMarkup,
@@ -530,6 +542,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     googlePresentationEmbedCode: "",
     googleSheetsEmbedCode: "",
     mapEmbedCode: "",
+    contactMapEmbedCode: "",
     socialLinks: [],
     contact: {
       phone: config.contactPhone,
@@ -550,9 +563,9 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     pageContent: { home: "", services: "", about: "", contact: "" }
   };
   const contactBody = contactMode === "form-map"
-    ? `<div class="contact-wrap"><div class="contact-layout">${contactForm(config.businessName, config.contactEmail)}${contactMap(selectedMapEmbedCode)}</div></div>`
+    ? `<div class="contact-wrap"><div class="contact-layout">${contactForm(config.businessName, config.contactEmail)}${contactMap(selectedContactMapEmbedCode)}</div></div>`
     : contactMode === "details-map"
-      ? `<div class="contact-wrap"><div class="contact-layout">${contactDetails(contactContentBase)}${contactMap(selectedMapEmbedCode)}</div></div>`
+      ? `<div class="contact-wrap"><div class="contact-layout">${contactDetails(contactContentBase)}${contactMap(selectedContactMapEmbedCode)}</div></div>`
       : contactMode === "details"
         ? `<div class="contact-wrap details-only">${contactDetails(contactContentBase)}</div>`
         : `<div class="contact-wrap">${contactForm(config.businessName, config.contactEmail)}</div>`;
@@ -576,6 +589,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     googlePresentationEmbedCode: userProvidedEmbed(config.googlePresentationEmbedCode),
     googleSheetsEmbedCode: userProvidedEmbed(config.googleSheetsEmbedCode),
     mapEmbedCode: selectedMapEmbedCode,
+    contactMapEmbedCode: selectedContactMapEmbedCode,
     socialLinks: configuredSocialLinks(config),
     contact: {
       phone: config.contactPhone,
@@ -665,7 +679,8 @@ export const flattenTemplateContent = (content: TemplateContent): Record<string,
     GOOGLE_DOCS_EMBED: content.googleDocsEmbedCode,
     GOOGLE_PRESENTATION_EMBED: content.googlePresentationEmbedCode,
     GOOGLE_SHEETS_EMBED: content.googleSheetsEmbedCode,
-    HOME_MAP_EMBED: homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card"),
+    YOUTUBE_SECTION: homeVideoSection(content.youtubeEmbedCode),
+    HOME_MAP_EMBED: homeEmbedCard("Location Map", content.contactMapEmbedCode || content.mapEmbedCode, "home-map-card"),
     HOME_EMBEDS: homeEmbedCluster(content),
     SOCIAL_LINKS: socialLinksMarkup(content.socialLinks),
     SOCIAL_SECTION: socialSectionMarkup(content.socialLinks),

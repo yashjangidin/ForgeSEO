@@ -52,6 +52,7 @@ export const startGenerationSchema = z.object({
     contactHours: optionalText(300),
     contactMode: z.enum(["form-map", "form", "details-map", "details"]).optional(),
     mapEmbedCode: optionalText(5000),
+    contactMapEmbedCode: optionalText(5000),
     websiteUrl: optionalUrl,
     dropdownLabel: optionalText(120),
     serviceKeywords: z.array(z.string().trim().min(1).max(180)).min(1).max(20).optional(),

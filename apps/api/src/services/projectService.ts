@@ -287,6 +287,7 @@ export class ProjectService {
       contactHours: input.contactHours || undefined,
       contactMode: input.contactMode ?? "form",
       mapEmbedCode: input.mapEmbedCode || undefined,
+      contactMapEmbedCode: input.contactMapEmbedCode || undefined,
       youtubeEmbedCode: input.youtubeEmbedCode || undefined,
       googleDocsEmbedCode: input.googleDocsEmbedCode || undefined,
       googlePresentationEmbedCode: input.googlePresentationEmbedCode || undefined,

@@ -52,6 +52,7 @@
     { "key": "FAQ_5_ANSWER", "required": true },
     { "key": "DROPDOWN_LABEL", "required": true },
     { "key": "YOUTUBE_EMBED", "required": false, "raw": true },
+    { "key": "YOUTUBE_SECTION", "required": false, "raw": true },
     { "key": "GOOGLE_DOCS_EMBED", "required": false, "raw": true },
     { "key": "GOOGLE_PRESENTATION_EMBED", "required": false, "raw": true },
     { "key": "GOOGLE_SHEETS_EMBED", "required": false, "raw": true }

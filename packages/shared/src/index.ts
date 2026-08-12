@@ -98,6 +98,7 @@ export interface WizardConfig {
   contactHours?: string;
   contactMode?: ContactMode;
   mapEmbedCode?: string;
+  contactMapEmbedCode?: string;
   websiteUrl?: string;
   dropdownLabel?: string;
   serviceKeywords?: string[];
