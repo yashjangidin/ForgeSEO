@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { config } from "../config.js";
-import { getAuth } from "../services/firebaseAdmin.js";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -17,6 +17,10 @@ interface DecodedTokenPayload {
   sub?: string;
 }
 
+const firebaseJwks = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
+);
+
 const decodeTokenPayload = (token: string): DecodedTokenPayload | undefined => {
   const [, payload] = token.split(".");
   if (!payload) {
@@ -29,6 +33,31 @@ const decodeTokenPayload = (token: string): DecodedTokenPayload | undefined => {
   } catch {
     return undefined;
   }
+};
+
+const verifyFirebaseIdToken = async (token: string): Promise<AuthenticatedRequest["user"]> => {
+  const projectId = config.firebase.projectId;
+  if (!projectId) {
+    throw new Error("Firebase project id is not configured.");
+  }
+
+  const { payload } = await jwtVerify(token, firebaseJwks, {
+    algorithms: ["RS256"],
+    audience: projectId,
+    issuer: `https://securetoken.google.com/${projectId}`
+  });
+  const uid = typeof payload.user_id === "string"
+    ? payload.user_id
+    : typeof payload.sub === "string"
+      ? payload.sub
+      : undefined;
+  if (!uid) {
+    throw new Error("Firebase ID token did not include a user id.");
+  }
+  return {
+    uid,
+    email: typeof payload.email === "string" ? payload.email : undefined
+  };
 };
 
 const decodeLocalDevelopmentToken = (token: string): AuthenticatedRequest["user"] | undefined => {
@@ -69,12 +98,7 @@ export const requireAuth = async (
   }
 
   try {
-    const auth = await getAuth();
-    const decoded = await auth.verifyIdToken(token);
-    request.user = {
-      uid: decoded.uid,
-      email: decoded.email
-    };
+    request.user = await verifyFirebaseIdToken(token);
     next();
   } catch (error) {
     const localUser = decodeLocalDevelopmentToken(token);
