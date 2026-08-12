@@ -36,6 +36,18 @@ export interface AnchorLink {
   url: string;
 }
 
+export type SocialPlatform =
+  | "linkedin"
+  | "instagram"
+  | "x"
+  | "facebook"
+  | "youtube";
+
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string;
+}
+
 export interface ServiceKeywordGroup {
   keywords: string[];
 }
@@ -94,6 +106,7 @@ export interface WizardConfig {
   googleDocsEmbedCode?: string;
   googlePresentationEmbedCode?: string;
   googleSheetsEmbedCode?: string;
+  socialLinks?: SocialLink[];
   anchorLinks?: AnchorLink[];
   anchorText?: string;
   anchorUrl?: string;

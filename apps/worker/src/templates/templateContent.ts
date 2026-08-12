@@ -1,4 +1,4 @@
-import { serviceKeywordToFileName, type WizardConfig } from "@forgeseo/shared";
+import { serviceKeywordToFileName, type SocialPlatform, type WizardConfig } from "@forgeseo/shared";
 import type { PlaceholderValue } from "./types.js";
 
 export interface TemplateContent {
@@ -15,6 +15,12 @@ export interface TemplateContent {
   googlePresentationEmbedCode: string;
   googleSheetsEmbedCode: string;
   mapEmbedCode: string;
+  socialLinks: Array<{
+    platform: SocialPlatform;
+    label: string;
+    shortLabel: string;
+    url: string;
+  }>;
   contact: {
     phone?: string;
     email?: string;
@@ -100,6 +106,13 @@ const paragraphs = (items: string[]): string => items.map((item) => `<p>${escape
 
 const userProvidedEmbed = (input: string | undefined): string => input?.trim() ?? "";
 const logoDataUrlMaxLength = 7_000_000;
+const socialMeta: Record<SocialPlatform, { label: string; shortLabel: string }> = {
+  linkedin: { label: "LinkedIn", shortLabel: "in" },
+  instagram: { label: "Instagram", shortLabel: "ig" },
+  x: { label: "X", shortLabel: "x" },
+  facebook: { label: "Facebook", shortLabel: "fb" },
+  youtube: { label: "YouTube", shortLabel: "yt" }
+};
 
 const validLogoDataUrl = (input: string | undefined): string | undefined => {
   const value = input?.trim();
@@ -134,6 +147,36 @@ const servicesNavItems = (serviceKeywords: string[]): string =>
       return `<a${className} href="${serviceKeywordToFileName(keyword)}">${escapeHtml(keyword)}</a>`;
     })
     .join("\n          ");
+
+const configuredSocialLinks = (config: WizardConfig): TemplateContent["socialLinks"] =>
+  (config.socialLinks ?? []).reduce<TemplateContent["socialLinks"]>((links, social) => {
+    const url = social.url.trim();
+    if (!url || links.some((item) => item.platform === social.platform)) {
+      return links;
+    }
+    links.push({
+      platform: social.platform,
+      label: socialMeta[social.platform].label,
+      shortLabel: socialMeta[social.platform].shortLabel,
+      url
+    });
+    return links;
+  }, []);
+
+const socialLinksMarkup = (links: TemplateContent["socialLinks"]): string =>
+  links
+    .map((link) => `<a href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(link.label)}">${escapeHtml(link.shortLabel)}</a>`)
+    .join("\n        ");
+
+const socialSectionMarkup = (links: TemplateContent["socialLinks"]): string =>
+  links.length
+    ? `<div class="footer-col social-footer-col">
+      <h4>Follow Us</h4>
+      <div class="follow-row">
+        ${socialLinksMarkup(links)}
+      </div>
+    </div>`
+    : "";
 
 const contactForm = (businessName: string, contactEmail?: string): string => `
       <div class="contact-card">
@@ -482,6 +525,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     googlePresentationEmbedCode: "",
     googleSheetsEmbedCode: "",
     mapEmbedCode: "",
+    socialLinks: [],
     contact: {
       phone: config.contactPhone,
       email: config.contactEmail,
@@ -527,6 +571,7 @@ export const createFallbackTemplateContent = (config: WizardConfig): TemplateCon
     googlePresentationEmbedCode: userProvidedEmbed(config.googlePresentationEmbedCode),
     googleSheetsEmbedCode: userProvidedEmbed(config.googleSheetsEmbedCode),
     mapEmbedCode: selectedMapEmbedCode,
+    socialLinks: configuredSocialLinks(config),
     contact: {
       phone: config.contactPhone,
       email: config.contactEmail,
@@ -617,6 +662,8 @@ export const flattenTemplateContent = (content: TemplateContent): Record<string,
     GOOGLE_SHEETS_EMBED: content.googleSheetsEmbedCode,
     HOME_MAP_EMBED: homeEmbedCard("Location Map", content.mapEmbedCode, "home-map-card"),
     HOME_EMBEDS: homeEmbedCluster(content),
+    SOCIAL_LINKS: socialLinksMarkup(content.socialLinks),
+    SOCIAL_SECTION: socialSectionMarkup(content.socialLinks),
     PHONE: content.contact.phone,
     EMAIL: content.contact.email,
     ADDRESS: content.contact.address,

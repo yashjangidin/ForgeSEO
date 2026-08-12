@@ -62,6 +62,10 @@ export const startGenerationSchema = z.object({
     googleDocsEmbedCode: optionalText(5000),
     googlePresentationEmbedCode: optionalText(5000),
     googleSheetsEmbedCode: optionalText(5000),
+    socialLinks: z.array(z.object({
+      platform: z.enum(["linkedin", "instagram", "x", "facebook", "youtube"]),
+      url: requiredUrl
+    })).max(5).optional(),
     anchorLinks: z.array(z.object({
       text: z.string().trim().min(1).max(180),
       url: requiredUrl

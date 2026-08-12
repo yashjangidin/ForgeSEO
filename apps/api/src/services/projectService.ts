@@ -232,6 +232,15 @@ export class ProjectService {
       return links;
     }, []);
 
+    const socialLinks = (input.socialLinks ?? []).reduce<NonNullable<WizardConfig["socialLinks"]>>((links, social) => {
+      const url = social.url.trim();
+      if (!url || links.some((item) => item.platform === social.platform)) {
+        return links;
+      }
+      links.push({ platform: social.platform, url });
+      return links;
+    }, []);
+
     const normalizeKeywords = (keywords: Array<string | undefined>): string[] =>
       keywords.reduce<string[]>((values, keyword) => {
         const normalized = keyword?.trim();
@@ -282,6 +291,7 @@ export class ProjectService {
       googleDocsEmbedCode: input.googleDocsEmbedCode || undefined,
       googlePresentationEmbedCode: input.googlePresentationEmbedCode || undefined,
       googleSheetsEmbedCode: input.googleSheetsEmbedCode || undefined,
+      socialLinks: socialLinks.length ? socialLinks : undefined,
       anchorLinks: anchorLinks.length ? anchorLinks : undefined,
       anchorText: undefined,
       anchorUrl: undefined,

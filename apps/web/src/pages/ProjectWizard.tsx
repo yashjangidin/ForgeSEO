@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowRight, Check, Code2, Image as ImageIcon, Link as LinkIcon, LayoutTemplate, ListTree, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Check, Code2, Image as ImageIcon, Link as LinkIcon, LayoutTemplate, ListTree, Plus, Share2, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ContactMode, ProjectWizardConfig, WebsitePageKind } from "@forgeseo/shared";
+import type { ContactMode, ProjectWizardConfig, SocialPlatform, WebsitePageKind } from "@forgeseo/shared";
 import { getTemplates, startGeneration } from "../services/api";
 import { getConnectedProvider, integrationCatalog, loadAiSettings } from "../services/settings";
 
@@ -31,9 +31,18 @@ interface WizardFormState {
   googleDocsEmbedCode: string;
   googlePresentationEmbedCode: string;
   googleSheetsEmbedCode: string;
+  socialLinks: Record<SocialPlatform, { enabled: boolean; url: string }>;
   anchorLinks: Array<{ text: string; url: string }>;
   selectedPages: WebsitePageKind[];
 }
+
+const socialOptions: Array<{ platform: SocialPlatform; label: string; placeholder: string }> = [
+  { platform: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/company/..." },
+  { platform: "instagram", label: "Instagram", placeholder: "https://instagram.com/..." },
+  { platform: "x", label: "X", placeholder: "https://x.com/..." },
+  { platform: "facebook", label: "Facebook", placeholder: "https://facebook.com/..." },
+  { platform: "youtube", label: "YouTube", placeholder: "https://youtube.com/..." }
+];
 
 const initialForm: WizardFormState = {
   pageCount: "1",
@@ -60,6 +69,13 @@ const initialForm: WizardFormState = {
   googleDocsEmbedCode: "",
   googlePresentationEmbedCode: "",
   googleSheetsEmbedCode: "",
+  socialLinks: {
+    linkedin: { enabled: false, url: "" },
+    instagram: { enabled: false, url: "" },
+    x: { enabled: false, url: "" },
+    facebook: { enabled: false, url: "" },
+    youtube: { enabled: false, url: "" }
+  },
   anchorLinks: [{ text: "", url: "" }],
   selectedPages: ["home", "services", "about", "contact"]
 };
@@ -90,6 +106,19 @@ export const ProjectWizard = (): ReactElement => {
 
   const update = <K extends keyof WizardFormState>(key: K, value: WizardFormState[K]): void => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateSocialLink = (platform: SocialPlatform, value: Partial<WizardFormState["socialLinks"][SocialPlatform]>): void => {
+    setForm((current) => ({
+      ...current,
+      socialLinks: {
+        ...current.socialLinks,
+        [platform]: {
+          ...current.socialLinks[platform],
+          ...value
+        }
+      }
+    }));
   };
 
   useEffect(() => {
@@ -210,6 +239,10 @@ export const ProjectWizard = (): ReactElement => {
     return keywords;
   }, []);
   const serviceKeywordGroupsAreComplete = serviceKeywordGroups.length > 0 && serviceKeywordGroups.every((group) => group.length > 0);
+  const socialLinks = socialOptions
+    .map(({ platform }) => ({ platform, url: form.socialLinks[platform].url.trim(), enabled: form.socialLinks[platform].enabled }))
+    .filter((social) => social.enabled && social.url)
+    .map(({ platform, url }) => ({ platform, url }));
   const contactModeUsesDetails = form.contactMode === "details" || form.contactMode === "details-map";
   const contactModeUsesMap = form.contactMode === "form-map" || form.contactMode === "details-map";
   const connectedProvider = getConnectedProvider(aiSettings);
@@ -243,6 +276,7 @@ export const ProjectWizard = (): ReactElement => {
     googleDocsEmbedCode: form.googleDocsEmbedCode || undefined,
     googlePresentationEmbedCode: form.googlePresentationEmbedCode || undefined,
     googleSheetsEmbedCode: form.googleSheetsEmbedCode || undefined,
+    socialLinks: socialLinks.length ? socialLinks : undefined,
     selectedPages: form.selectedPages,
     anchorLinks: form.anchorLinks
       .map((anchor) => ({ text: anchor.text.trim(), url: anchor.url.trim() }))
@@ -418,6 +452,40 @@ export const ProjectWizard = (): ReactElement => {
             <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Presentation iframe embed code" value={form.googlePresentationEmbedCode} onChange={(event) => update("googlePresentationEmbedCode", event.target.value)} />
             <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Sheets iframe embed code" value={form.googleSheetsEmbedCode} onChange={(event) => update("googleSheetsEmbedCode", event.target.value)} />
             <textarea className="min-h-28 rounded border border-slate-300 px-3 py-2 font-mono text-sm" placeholder="Google Maps iframe embed code" value={form.mapEmbedCode} onChange={(event) => update("mapEmbedCode", event.target.value)} />
+          </div>
+        </section>
+
+        <section className="grid gap-4 rounded border border-slate-200 bg-white p-5">
+          <div className="flex items-center gap-3">
+            <Share2 className="h-5 w-5 text-ocean" />
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Socials</h2>
+              <p className="mt-1 text-sm text-slate-500">Choose which social links should appear in the website footer.</p>
+            </div>
+          </div>
+          <div className="grid gap-3">
+            {socialOptions.map((social) => {
+              const current = form.socialLinks[social.platform];
+              return (
+                <div key={social.platform} className="grid gap-3 rounded border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[180px_1fr] sm:items-center">
+                  <label className="inline-flex items-center gap-3 text-sm font-semibold text-ink">
+                    <input
+                      type="checkbox"
+                      checked={current.enabled}
+                      onChange={(event) => updateSocialLink(social.platform, { enabled: event.target.checked })}
+                    />
+                    <span>{social.label}</span>
+                  </label>
+                  <input
+                    className="rounded border border-slate-300 px-3 py-2 disabled:bg-slate-100 disabled:text-slate-400"
+                    disabled={!current.enabled}
+                    placeholder={social.placeholder}
+                    value={current.url}
+                    onChange={(event) => updateSocialLink(social.platform, { url: event.target.value })}
+                  />
+                </div>
+              );
+            })}
           </div>
         </section>
 
