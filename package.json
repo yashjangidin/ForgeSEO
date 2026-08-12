@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm:dev --workspace @forgeseo/api\" \"npm:dev --workspace @forgeseo/worker\" \"npm:dev --workspace @forgeseo/web\"",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspace @forgeseo/shared && npm run build --workspace @forgeseo/worker && npm run build --workspace @forgeseo/api && npm run build --workspace @forgeseo/web",
     "test": "npm run typecheck && node --test tests/node/*.test.mjs",
     "typecheck": "tsc -b apps/api apps/worker apps/web packages/shared",
     "lint": "eslint . --ext .ts,.tsx"
