@@ -118,6 +118,17 @@ const socialMeta: Record<SocialPlatform, { label: string; shortLabel: string }> 
   youtube: { label: "YouTube", shortLabel: "yt" }
 };
 
+const footerDescription = (content: TemplateContent): string => {
+  const primaryDescription = content.hero.description.find((item) => item.trim().length > 80)
+    ?? content.about.description.find((item) => item.trim().length > 80)
+    ?? content.seo.metaDescription
+    ?? content.tagline;
+  const servicePhrase = content.serviceKeywords.length
+    ? ` Visitors can explore ${content.serviceKeywords.slice(0, 3).join(", ").toLowerCase()} and use the contact page when they are ready to take the next step.`
+    : " Visitors can explore the service pages and use the contact page when they are ready to take the next step.";
+  return `${sentence(primaryDescription)}${servicePhrase}`;
+};
+
 const validLogoDataUrl = (input: string | undefined): string | undefined => {
   const value = input?.trim();
   if (!value || value.length > logoDataUrlMaxLength) {
@@ -669,6 +680,7 @@ export const flattenTemplateContent = (content: TemplateContent): Record<string,
     BUSINESS_NAME: content.businessName,
     LOGO_MARKUP: content.logoMarkup,
     TAGLINE: content.tagline,
+    FOOTER_DESCRIPTION: footerDescription(content),
     PRIMARY_CTA: content.primaryCta,
     SECONDARY_CTA: content.secondaryCta,
     CANONICAL_URL: content.canonicalUrl,

@@ -16,6 +16,7 @@
     { "key": "BUSINESS_NAME", "required": true },
     { "key": "LOGO_MARKUP", "required": true, "raw": true },
     { "key": "TAGLINE", "required": true },
+    { "key": "FOOTER_DESCRIPTION", "required": true },
     { "key": "PRIMARY_CTA", "required": true },
     { "key": "CANONICAL_URL", "required": true },
     { "key": "SERVICES_NAV_ITEMS", "required": true, "raw": true },

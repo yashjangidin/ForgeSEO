@@ -11,6 +11,7 @@ import { countWords, pageId, slugify } from "./engineUtils.js";
 
 interface StructuredJsonService {
   generateJson<T>(prompt: string, options?: { maxOutputTokens?: number }): Promise<T>;
+  describe?(): string;
 }
 
 const stripHtml = (input: string): string =>
@@ -495,6 +496,9 @@ Return JSON only.
 Convert this business profile into structured website content.
 Do not generate HTML, CSS, JavaScript, markdown, layouts, sections, animations, responsive code, or class names.
 Generate only structured text fields.
+Write content that is specific to the provided business description, industry, location, homePageKeywords, serviceKeywordGroups, contact details, and selected services.
+Avoid generic filler phrases such as "clear information", "useful next steps", "better decision", or repeated claims unless they are supported by concrete business details.
+Every home page and service page should feel like a distinct SEO article for a real business, with practical explanations, local/service context when available, and varied section headings.
 Use homePageKeywords for every home page, but make each homePages item unique.
 Home page style: long-form SEO/editorial article like the provided Home-page-1.docx sample. Each homePages item should have a strong title, a detailed intro, and 8 to 10 clear sections. Each section body should be 70 to 110 words and useful, not a one-line summary.
 Service page style: long-form service guide like the provided Services drop down button 1.docx sample. Generate one servicePages item for every keyword inside every serviceKeywordGroups item. Each keyword is a separate Services dropdown option, a separate service page file, and needs its own distinct service page content with 7 to 9 clear sections. Each section body should be 70 to 110 words.
@@ -541,7 +545,7 @@ ${structuredContentContract}
     };
 
     return {
-      task: "Generated structured business JSON.",
+      task: `Generated structured business JSON using ${this.structuredJsonService.describe?.() ?? "configured AI provider"}.`,
       state: {
         ...state,
         templateContent: normalized,

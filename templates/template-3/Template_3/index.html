@@ -70,7 +70,7 @@ footer{background:#050505;color:#fff;padding:48px 42px}.footer-grid{max-width:11
   {{YOUTUBE_SECTION}}
   {{HOME_EMBEDS}}
 </main>
-<footer><div class="footer-grid"><div><h3>{{BUSINESS_NAME}}</h3><p>{{TAGLINE}}</p></div><div><h3>Pages</h3><ul><li><a href="index.html">Home</a></li><li><a href="about-us.html">About Us</a></li><li><a href="contact-us.html">Contact Us</a></li></ul></div><div><h3>Services</h3><ul><li><a href="{{SERVICES_INDEX_URL}}">{{DROPDOWN_LABEL}}</a></li></ul></div>{{SOCIAL_SECTION}}</div><div class="copyright">&copy; 2026 {{BUSINESS_NAME}}. All rights reserved.</div></footer>
+<footer><div class="footer-grid"><div><h3>{{BUSINESS_NAME}}</h3><p>{{FOOTER_DESCRIPTION}}</p></div><div><h3>Pages</h3><ul><li><a href="index.html">Home</a></li><li><a href="about-us.html">About Us</a></li><li><a href="contact-us.html">Contact Us</a></li></ul></div><div><h3>Services</h3><ul><li><a href="{{SERVICES_INDEX_URL}}">{{DROPDOWN_LABEL}}</a></li></ul></div>{{SOCIAL_SECTION}}</div><div class="copyright">&copy; 2026 {{BUSINESS_NAME}}. All rights reserved.</div></footer>
 <script>
 document.querySelectorAll('.faq-q').forEach((button)=>button.addEventListener('click',()=>button.closest('.faq-item').classList.toggle('open')));
 document.getElementById('services-toggle')?.addEventListener('click',(event)=>{event.preventDefault();event.currentTarget.closest('.dropdown').classList.toggle('open');});

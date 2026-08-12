@@ -45,6 +45,11 @@ export const subscribeToJob = (
   }
 
   let stopPolling: (() => void) | undefined;
+  const startPolling = (): void => {
+    if (!stopPolling) {
+      stopPolling = pollJob(jobId, onValue, onError);
+    }
+  };
   const stopSnapshot = onSnapshot(
     doc(db, COLLECTIONS.generationJobs, jobId),
     (snapshot) => {
@@ -53,8 +58,13 @@ export const subscribeToJob = (
       onValue(snapshot.exists() ? (snapshot.data() as GenerationJob) : undefined);
     },
     (error) => {
-      if (error.code === "permission-denied") {
-        stopPolling = pollJob(jobId, onValue, onError);
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        error.code === "permission-denied" ||
+        error.code === "unavailable" ||
+        /database is closing|hidden|offline|indexeddb/i.test(message)
+      ) {
+        startPolling();
         return;
       }
 

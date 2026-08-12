@@ -7,6 +7,7 @@ import { scaleWorkerPool } from "./cloudRunWorkerScaler.js";
 import { getFirestore } from "./firebaseAdmin.js";
 import { enqueueGeneration } from "./jobQueue.js";
 import { runDirectGeneration } from "./directGeneration.js";
+import { scheduleBackgroundTask } from "./backgroundTasks.js";
 import { LocalDataStore, useLocalDataStore } from "./localDataStore.js";
 import { TemplateService } from "./templateService.js";
 
@@ -137,22 +138,12 @@ export class ProjectService {
     };
 
     if (config.generationMode === "direct") {
-      try {
-        await runDirectGeneration(generationPayload);
-        return {
-          projectId: project.id,
-          jobId,
-          status: "completed"
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Direct generation failed.";
-        console.error(`Direct generation job failed: ${message}`);
-        return {
-          projectId: project.id,
-          jobId,
-          status: "failed"
-        };
-      }
+      await scheduleBackgroundTask(runDirectGeneration(generationPayload), `Direct generation job ${jobId}`);
+      return {
+        projectId: project.id,
+        jobId,
+        status: job.status
+      };
     }
 
     try {

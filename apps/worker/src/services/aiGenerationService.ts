@@ -154,6 +154,10 @@ export class AiGenerationService {
     this.model = options.model?.trim() || (this.provider === "openai" ? workerConfig.openAiModel : this.providerConfig.defaultModel);
   }
 
+  describe(): string {
+    return `${this.providerConfig.label} (${this.model})`;
+  }
+
   async generateJson<T>(prompt: string, options: { maxOutputTokens?: number } = {}): Promise<T> {
     const maxOutputTokens = this.maxOutputTokensFor(options.maxOutputTokens);
     if (this.providerConfig.endpointKind === "gemini") {
