@@ -5,12 +5,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 300,
-      "includeFiles": [
-        "apps/api/dist/**",
-        "apps/worker/dist/**",
-        "packages/shared/dist/**",
-        "templates/**"
-      ]
+      "includeFiles": "templates/**"
     }
   },
   "rewrites": [
