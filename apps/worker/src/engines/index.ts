@@ -5,13 +5,18 @@ import { workerConfig } from "../config.js";
 import type { BuildArtifact, GenerationEngineRunner, GenerationState } from "../pipeline/types.js";
 import { TemplateLibrary } from "../templates/templateLibrary.js";
 import { TemplateRenderer } from "../templates/templateRenderer.js";
-import { createFallbackTemplateContent, flattenTemplateContent, structuredAboutContentToHtml, structuredHomeContentToHtml, structuredServiceContentToHtml, type TemplateContent } from "../templates/templateContent.js";
+import { createFallbackTemplateContent, flattenTemplateContent, structuredAboutContentToHtml, structuredHomeContentToHtml, structuredServiceContentToHtml, type RenderImageOptions, type TemplateContent } from "../templates/templateContent.js";
 import type { PlaceholderValue, SelectedTemplate, TemplatePage, TemplateRenderReport } from "../templates/types.js";
 import { countWords, pageId, slugify } from "./engineUtils.js";
+import { ImageGenerationService } from "../services/imageGenerationService.js";
 
 interface StructuredJsonService {
   generateJson<T>(prompt: string, options?: { maxOutputTokens?: number }): Promise<T>;
   describe?(): string;
+}
+
+interface WebsiteImageService {
+  generateWebsiteImages(config: WizardConfig): Promise<NonNullable<GenerationState["generatedImages"]>>;
 }
 
 const stripHtml = (input: string): string =>
@@ -273,10 +278,13 @@ const canonicalForPage = (config: WizardConfig, outputPath: string, fallback: st
   }
 };
 
-const servicePageContent = (config: WizardConfig, content: TemplateContent, keyword: string): string => {
+const generatedImageSources = (state: Pick<GenerationState, "generatedImages">): string[] =>
+  state.generatedImages?.map((image) => `../../${image.relativePath}`) ?? [];
+
+const servicePageContent = (config: WizardConfig, content: TemplateContent, keyword: string, imageOptions: RenderImageOptions = {}): string => {
   const structuredPage = content.servicePages?.find((page) => page.keyword.toLowerCase() === keyword.toLowerCase());
   if (structuredPage) {
-    return structuredServiceContentToHtml(structuredPage, config);
+    return structuredServiceContentToHtml(structuredPage, config, imageOptions);
   }
 
   const service = content.services.find((item) => item.title.toLowerCase() === keyword.toLowerCase());
@@ -304,9 +312,9 @@ const servicePageContent = (config: WizardConfig, content: TemplateContent, keyw
   </section>`;
 };
 
-const contentForRenderTarget = (config: WizardConfig, content: TemplateContent, serviceKeywords: string[], pageIndex: number): TemplateContent => {
+const contentForRenderTarget = (config: WizardConfig, content: TemplateContent, serviceKeywords: string[], pageIndex: number, imageOptions: RenderImageOptions = {}): TemplateContent => {
   const structuredHomePage = content.homePages?.[pageIndex];
-  const homeContent = structuredHomePage ? structuredHomeContentToHtml(structuredHomePage, config) : content.pageContent.home;
+  const homeContent = structuredHomePage ? structuredHomeContentToHtml(structuredHomePage, config, imageOptions) : content.pageContent.home;
   const dropdownLabel = serviceKeywords[0] ?? content.dropdownLabel;
   const heroTitle = structuredHomePage?.title ?? content.hero.title;
   const heroIntro = structuredHomePage?.intro ?? content.hero.description[0] ?? config.businessDescription;
@@ -334,7 +342,8 @@ const servicePageValues = (
   content: TemplateContent,
   template: SelectedTemplate,
   serviceKeywords: string[],
-  baseValues: Record<string, PlaceholderValue>
+  baseValues: Record<string, PlaceholderValue>,
+  imageOptions: RenderImageOptions = {}
 ): Record<string, Record<string, PlaceholderValue>> => {
   let serviceIndex = 0;
   return template.manifest.supportedPages.reduce<Record<string, Record<string, PlaceholderValue>>>((pageValues, page) => {
@@ -348,7 +357,7 @@ const servicePageValues = (
       HERO_TITLE: keyword,
       HERO_DESCRIPTION_1: config.businessDescription,
       HERO_DESCRIPTION_2: `${config.businessName} provides ${keyword.toLowerCase()} with clear information and practical next steps.`,
-      SERVICES_CONTENT: servicePageContent(config, content, keyword),
+      SERVICES_CONTENT: servicePageContent(config, content, keyword, imageOptions),
       META_TITLE: `${config.businessName} | ${keyword}`,
       META_DESCRIPTION: metaDescription,
       OG_TITLE: `${config.businessName} | ${keyword}`,
@@ -555,6 +564,66 @@ ${structuredContentContract}
   }
 }
 
+export class ImageGeneratorEngine implements GenerationEngineRunner {
+  readonly name = "image-generator" as const;
+
+  constructor(private readonly imageService?: WebsiteImageService) {}
+
+  async run(state: GenerationState) {
+    const requestedImageCount = Math.max(0, Math.min(10, Math.max(state.wizardConfig.homeImageCount ?? 0, state.wizardConfig.serviceImageCount ?? 0)));
+    if (requestedImageCount === 0) {
+      return {
+        task: "Skipped image generation because both image counts are set to 0.",
+        state: { ...state, generatedImages: [] }
+      };
+    }
+
+    if (!this.imageService) {
+      return {
+        task: "Skipped AI image generation; using built-in template images.",
+        state: { ...state, generatedImages: [] }
+      };
+    }
+
+    try {
+      const generatedImages = await this.imageService.generateWebsiteImages(state.wizardConfig);
+      return {
+        task: generatedImages.length
+          ? `Generated ${generatedImages.length} shared website images.`
+          : "Skipped image generation because no images were requested.",
+        state: {
+          ...state,
+          generatedImages,
+          assets: [
+            ...state.assets,
+            ...generatedImages.map((image) => ({
+              id: crypto.randomUUID(),
+              projectId: state.project.id,
+              jobId: state.project.lastGenerationJobId ?? "",
+              type: "image" as const,
+              path: image.relativePath,
+              url: "",
+              alt: image.alt,
+              createdAt: new Date().toISOString()
+            }))
+          ],
+          artifacts: [...state.artifacts, ...generatedImages.map((image) => ({
+            relativePath: image.relativePath,
+            content: image.content,
+            contentType: image.contentType
+          }))]
+        }
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Image generation failed.";
+      return {
+        task: `AI image generation failed; using built-in template images. ${message}`,
+        state: { ...state, generatedImages: [] }
+      };
+    }
+  }
+}
+
 export class TemplateRendererEngine implements GenerationEngineRunner {
   readonly name = "template-renderer" as const;
 
@@ -614,16 +683,17 @@ export class TemplateRendererEngine implements GenerationEngineRunner {
     const reports: TemplateRenderReport[] = [];
     const artifacts: BuildArtifact[] = [];
     const pages: GeneratedPage[] = [];
-    const assets: GeneratedAsset[] = [];
+    const assets: GeneratedAsset[] = [...state.assets];
 
     for (const target of renderTargets) {
       const insertedAnchorIndexes = new Set<number>();
       const targetServiceKeywords = serviceKeywordGroups[target.pageNumber - 1] ?? serviceKeywordGroups[0] ?? templateContent.serviceKeywords;
-      const targetTemplateContent = contentForRenderTarget(state.wizardConfig, templateContent, targetServiceKeywords, target.pageNumber - 1);
+      const imageOptions: RenderImageOptions = { generatedImages: generatedImageSources(state) };
+      const targetTemplateContent = contentForRenderTarget(state.wizardConfig, templateContent, targetServiceKeywords, target.pageNumber - 1, imageOptions);
       const targetValues = flattenTemplateContent(targetTemplateContent);
       targetValues.ABOUT_CONTENT = stripGeneratedArticleImages(String(targetValues.ABOUT_CONTENT ?? ""));
       const targetTemplate = templateWithSelectedPages(target.template, includedPages, targetServiceKeywords);
-      const result = await this.renderer.render(targetTemplate, targetValues, servicePageValues(state.wizardConfig, targetTemplateContent, targetTemplate, targetServiceKeywords, targetValues));
+      const result = await this.renderer.render(targetTemplate, targetValues, servicePageValues(state.wizardConfig, targetTemplateContent, targetTemplate, targetServiceKeywords, targetValues, imageOptions));
       if (result.report.missingRequiredPlaceholders.length > 0 || result.report.unreplacedPlaceholders.length > 0) {
         throw new Error(
           `Template rendering validation failed for "${targetTemplate.manifest.id}". Missing: ${result.report.missingRequiredPlaceholders.join(", ") || "none"}. Unreplaced: ${

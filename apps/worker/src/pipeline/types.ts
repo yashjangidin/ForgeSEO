@@ -8,10 +8,19 @@ export interface BuildArtifact {
   contentType: string;
 }
 
+export interface GeneratedImageAsset {
+  fileName: string;
+  relativePath: string;
+  content: Buffer;
+  contentType: string;
+  alt: string;
+}
+
 export interface GenerationState {
   project: Project;
   wizardConfig: WizardConfig;
   templateContent?: TemplateContent;
+  generatedImages?: GeneratedImageAsset[];
   placeholderValues?: Record<string, string | number | boolean | null | undefined>;
   selectedTemplate?: SelectedTemplate;
   selectedTemplates?: SelectedTemplate[];

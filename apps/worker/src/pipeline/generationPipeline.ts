@@ -1,7 +1,8 @@
 import { ENGINE_ORDER, type AiProvider, type GenerationResult } from "@forgeseo/shared";
 import { workerConfig } from "../config.js";
-import { PreviewBuilderEngine, StructuredJsonGeneratorEngine, TemplateRendererEngine, ZipExportEngine } from "../engines/index.js";
+import { ImageGeneratorEngine, PreviewBuilderEngine, StructuredJsonGeneratorEngine, TemplateRendererEngine, ZipExportEngine } from "../engines/index.js";
 import { AiGenerationService } from "../services/aiGenerationService.js";
+import { ImageGenerationService } from "../services/imageGenerationService.js";
 import { JobRepository } from "../services/jobRepository.js";
 import { StorageService } from "../services/storageService.js";
 import type { GenerationState } from "./types.js";
@@ -43,6 +44,14 @@ export class GenerationPipeline {
                 provider: input.aiProvider ?? "openai",
                 apiKey: input.aiApiKey ?? input.openAiApiKey,
                 model: input.aiModel ?? input.openAiModel
+              })
+            : undefined
+        ),
+        new ImageGeneratorEngine(
+          input.aiProvider === "openai" || input.openAiApiKey || workerConfig.openAiApiKey
+            ? new ImageGenerationService({
+                apiKey: input.openAiApiKey ?? (input.aiProvider === "openai" ? input.aiApiKey : undefined),
+                model: "gpt-image-1"
               })
             : undefined
         ),

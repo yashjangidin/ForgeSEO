@@ -88,6 +88,10 @@ export interface TemplateContent {
   };
 }
 
+export interface RenderImageOptions {
+  generatedImages?: string[];
+}
+
 const pick = <T>(items: T[], index: number, fallback: T): T => items[index] ?? fallback;
 
 const sentence = (input: string): string => input.trim().replace(/\s+/g, " ");
@@ -431,8 +435,11 @@ const sharedArticleImages = [
   "hero-chat.png"
 ];
 
-const sharedImagePool = (config: WizardConfig): string[] => {
+const sharedImagePool = (config: WizardConfig, options: RenderImageOptions = {}): string[] => {
   const imageLimit = Math.max(configuredImageCount(config.homeImageCount), configuredImageCount(config.serviceImageCount));
+  if (options.generatedImages?.length) {
+    return Array.from({ length: imageLimit }, (_, index) => options.generatedImages![index % options.generatedImages!.length]!);
+  }
   return Array.from({ length: imageLimit }, (_, index) => sharedArticleImages[index % sharedArticleImages.length]!);
 };
 
@@ -454,9 +461,9 @@ const aboutSectionBody = (body: string, config: WizardConfig): string => `${body
 The goal is to present ${config.businessName} as clear, approachable, and useful without making the page feel thin. Visitors should be able to understand the purpose of the business, the thinking behind the website, and the kind of experience they can expect.
 This page also supports trust by giving the business a fuller explanation. Instead of only listing services, it explains the reason those services matter and shows how ${config.businessName} wants to help people move from curiosity to confident action.`;
 
-export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent["homePages"]>[number], config: WizardConfig): string => {
+export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent["homePages"]>[number], config: WizardConfig, options: RenderImageOptions = {}): string => {
   const imageLimit = configuredImageCount(config.homeImageCount);
-  const images = sharedImagePool(config).slice(0, imageLimit);
+  const images = sharedImagePool(config, options).slice(0, imageLimit);
   let insertedImages = 0;
   const addImage = (alt: string): string => {
     if (insertedImages >= imageLimit) {
@@ -476,9 +483,9 @@ export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent
   ${content.sections.map((section) => `${contentBlock(section.heading, homeSectionBody(section.body, config, section.heading))}${addImage(section.heading)}`).join("")}`;
 };
 
-export const structuredServiceContentToHtml = (content: NonNullable<TemplateContent["servicePages"]>[number], config: WizardConfig): string => {
+export const structuredServiceContentToHtml = (content: NonNullable<TemplateContent["servicePages"]>[number], config: WizardConfig, options: RenderImageOptions = {}): string => {
   const imageLimit = configuredImageCount(config.serviceImageCount);
-  const images = sharedImagePool(config).slice(0, imageLimit);
+  const images = sharedImagePool(config, options).slice(0, imageLimit);
   let insertedImages = 0;
   const addImage = (alt: string): string => {
     if (insertedImages >= imageLimit) {

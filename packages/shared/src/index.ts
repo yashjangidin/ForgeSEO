@@ -24,6 +24,7 @@ export type EngineStatus = "pending" | "running" | "completed" | "failed" | "ski
 
 export const ENGINE_ORDER = [
   "structured-json-generator",
+  "image-generator",
   "template-renderer",
   "preview-builder",
   "zip-export"

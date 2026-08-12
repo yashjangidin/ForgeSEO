@@ -248,6 +248,7 @@ export const ProjectWizard = (): ReactElement => {
   const contactModeUsesDetails = form.contactMode === "details" || form.contactMode === "details-map";
   const contactModeUsesMap = form.contactMode === "form-map" || form.contactMode === "details-map";
   const connectedProvider = getConnectedProvider(aiSettings);
+  const connectedOpenAiSettings = aiSettings.providers.openai.apiKey.trim().length >= 8 ? aiSettings.providers.openai : undefined;
   const selectedProviderName = integrationCatalog.find((integration) => integration.generationProvider === aiSettings.selectedProvider)?.name ?? "AI provider";
 
   const wizardConfig: ProjectWizardConfig = {
@@ -307,7 +308,9 @@ export const ProjectWizard = (): ReactElement => {
             wizardConfig,
             aiProvider: connectedProvider.provider,
             aiApiKey: connectedProvider.apiKey,
-            aiModel: connectedProvider.model
+            aiModel: connectedProvider.model,
+            openAiApiKey: connectedOpenAiSettings?.apiKey.trim(),
+            openAiModel: connectedOpenAiSettings?.model.trim()
           });
         }}
       >
@@ -357,6 +360,9 @@ export const ProjectWizard = (): ReactElement => {
             </label>
             <input className="rounded border border-slate-300 px-3 py-2" placeholder="Website URL" value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} />
           </div>
+          <p className="text-sm text-slate-500">
+            ForgeSEO generates one shared image set per generation with OpenAI when an OpenAI key is available, then reuses those images across every generated home and service page.
+          </p>
         </section>
 
         <section className="grid gap-4 rounded border border-slate-200 bg-white p-5">
