@@ -14,6 +14,7 @@ export interface ApiConfig {
   webOrigin: string;
   redisUrl: string;
   queueProvider: "local" | "redis";
+  generationMode: "queue" | "direct";
   structuredJsonProvider: "deterministic" | "openai";
   siteStorageProvider: "local" | "firebase";
   localBuildRoot: string;
@@ -49,6 +50,9 @@ const siteStorageProvider = (value: string | undefined): "local" | "firebase" =>
 const queueProvider = (value: string | undefined): "local" | "redis" =>
   value?.trim().toLowerCase() === "redis" ? "redis" : "local";
 
+const generationMode = (value: string | undefined): "queue" | "direct" =>
+  value?.trim().toLowerCase() === "direct" ? "direct" : "queue";
+
 interface FirebaseServiceAccountFile {
   project_id?: string;
   client_email?: string;
@@ -74,6 +78,7 @@ export const config: ApiConfig = {
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:5173",
   redisUrl: process.env.REDIS_URL ?? "redis://localhost:6379",
   queueProvider: queueProvider(process.env.QUEUE_PROVIDER),
+  generationMode: generationMode(process.env.GENERATION_MODE),
   structuredJsonProvider: structuredJsonProvider(process.env.STRUCTURED_JSON_PROVIDER),
   siteStorageProvider: siteStorageProvider(process.env.SITE_STORAGE_PROVIDER),
   localBuildRoot: path.resolve(repoRoot, process.env.WORKER_TMP_ROOT ?? ".forgeseo-builds"),
@@ -110,14 +115,14 @@ export const getCapabilityState = (): CapabilityState => {
         process.env.GOOGLE_APPLICATION_CREDENTIALS)
   );
   const storage = config.siteStorageProvider === "local" || Boolean(firebaseAdmin && config.firebase.storageBucket);
-  const redis = useLocalQueue() || Boolean(config.redisUrl);
+  const redis = config.generationMode === "direct" || useLocalQueue() || Boolean(config.redisUrl);
   const openai = Boolean(config.openAiApiKey) || config.structuredJsonProvider === "openai";
   const structuredJson = config.structuredJsonProvider === "deterministic" || openai;
   const generationEnabled = firebaseAdmin && storage && redis && structuredJson;
   const missing = [
     firebaseAdmin ? undefined : "Firebase Admin credentials",
     storage ? undefined : "Storage provider",
-    redis ? undefined : "Redis URL or local queue",
+    redis ? undefined : "Redis URL, local queue, or direct generation mode",
     structuredJson ? undefined : "Structured JSON generator"
   ].filter((item): item is string => Boolean(item));
 

@@ -1,11 +1,13 @@
-import IORedis from "ioredis";
+import { Redis as IORedis } from "ioredis";
 import { config, getCapabilityState, useLocalQueue } from "../config.js";
 
 export const getRuntimeCapabilityState = async () => {
   const staticState = getCapabilityState();
   let redis = false;
 
-  if (useLocalQueue()) {
+  if (config.generationMode === "direct") {
+    redis = true;
+  } else if (useLocalQueue()) {
     redis = true;
   } else if (config.redisUrl) {
     const client = new IORedis(config.redisUrl, {
@@ -37,6 +39,7 @@ export const getRuntimeCapabilityState = async () => {
   return {
     ...staticState,
     redis,
+    generationMode: config.generationMode,
     generationEnabled,
     disabledReason: generationEnabled
       ? undefined

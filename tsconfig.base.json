@@ -17,8 +17,8 @@
     "noImplicitOverride": true,
     "baseUrl": ".",
     "paths": {
-      "@forgeseo/shared": ["packages/shared/src/index.ts"]
+      "@forgeseo/shared": ["packages/shared/src/index.ts"],
+      "@forgeseo/worker/pipeline/generationPipeline": ["apps/worker/src/pipeline/generationPipeline.ts"]
     }
   }
 }
-

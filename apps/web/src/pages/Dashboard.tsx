@@ -26,7 +26,7 @@ export const Dashboard = (): ReactElement => {
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["Firebase Admin", data.firebaseAdmin],
-              ["Redis Queue", data.redis],
+              [data.generationMode === "direct" ? "Direct Runner" : "Redis Queue", data.redis],
               ["AI JSON", data.structuredJson],
               ["Storage", data.storage]
             ].map(([label, enabled]) => (

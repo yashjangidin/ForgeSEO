@@ -1,5 +1,5 @@
 import { Queue, type Queue as BullQueue } from "bullmq";
-import IORedis from "ioredis";
+import { Redis as IORedis } from "ioredis";
 import type { AiProvider } from "@forgeseo/shared";
 import { config, useLocalQueue } from "../config.js";
 import { enqueueLocalGeneration } from "./localQueue.js";

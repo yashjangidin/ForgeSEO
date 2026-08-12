@@ -1,4 +1,4 @@
-import { applicationDefault, cert, initializeApp, type App } from "firebase-admin/app";
+import { applicationDefault, cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getFirestore as getFirebaseFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { workerConfig } from "./config.js";
@@ -8,6 +8,12 @@ let db: Firestore | undefined;
 
 export const getFirebaseApp = (): App => {
   if (app) {
+    return app;
+  }
+
+  const existingApp = getApps()[0];
+  if (existingApp) {
+    app = existingApp;
     return app;
   }
 

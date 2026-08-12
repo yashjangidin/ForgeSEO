@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
 import type { Transaction } from "firebase-admin/firestore";
 import { COLLECTIONS, ENGINE_ORDER, type GenerationJob, type Project, type ProjectWizardConfig, type StartGenerationRequest, type StartGenerationResponse, type WizardConfig } from "@forgeseo/shared";
-import { getCapabilityState } from "../config.js";
+import { config, getCapabilityState } from "../config.js";
 import { PublicError } from "../middleware/errors.js";
 import { scaleWorkerPool } from "./cloudRunWorkerScaler.js";
 import { getFirestore } from "./firebaseAdmin.js";
 import { enqueueGeneration } from "./jobQueue.js";
+import { runDirectGeneration } from "./directGeneration.js";
 import { LocalDataStore, useLocalDataStore } from "./localDataStore.js";
 import { TemplateService } from "./templateService.js";
 
@@ -124,17 +125,38 @@ export class ProjectService {
       throw new PublicError(503, `Could not save the generation job in Firestore: ${message}`);
     }
 
+    const generationPayload = {
+      jobId,
+      projectId: project.id,
+      userId,
+      aiProvider: request.aiProvider ?? "openai",
+      aiApiKey: request.aiApiKey?.trim() || request.openAiApiKey?.trim() || undefined,
+      aiModel: request.aiModel?.trim() || request.openAiModel?.trim() || undefined,
+      openAiApiKey: request.openAiApiKey?.trim() || undefined,
+      openAiModel: request.openAiModel?.trim() || undefined
+    };
+
+    if (config.generationMode === "direct") {
+      try {
+        await runDirectGeneration(generationPayload);
+        return {
+          projectId: project.id,
+          jobId,
+          status: "completed"
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Direct generation failed.";
+        console.error(`Direct generation job failed: ${message}`);
+        return {
+          projectId: project.id,
+          jobId,
+          status: "failed"
+        };
+      }
+    }
+
     try {
-      await enqueueGeneration({
-        jobId,
-        projectId: project.id,
-        userId,
-        aiProvider: request.aiProvider ?? "openai",
-        aiApiKey: request.aiApiKey?.trim() || request.openAiApiKey?.trim() || undefined,
-        aiModel: request.aiModel?.trim() || request.openAiModel?.trim() || undefined,
-        openAiApiKey: request.openAiApiKey?.trim() || undefined,
-        openAiModel: request.openAiModel?.trim() || undefined
-      });
+      await enqueueGeneration(generationPayload);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Redis queue error.";
       console.error(`Generation job enqueue failed: ${message}`);

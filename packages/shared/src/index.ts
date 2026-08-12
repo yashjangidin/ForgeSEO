@@ -224,6 +224,7 @@ export interface StartGenerationResponse {
 export interface CapabilityState {
   firebaseAdmin: boolean;
   redis: boolean;
+  generationMode?: "queue" | "direct";
   structuredJson: boolean;
   openai?: boolean;
   storage: boolean;

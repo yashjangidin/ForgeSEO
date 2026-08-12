@@ -1,5 +1,5 @@
 import { Queue, Worker } from "bullmq";
-import IORedis from "ioredis";
+import { Redis as IORedis } from "ioredis";
 import type { AiProvider } from "@forgeseo/shared";
 import { assertWorkerConfigured, useLocalQueue, workerConfig } from "./config.js";
 import { GenerationPipeline } from "./pipeline/generationPipeline.js";

@@ -63,7 +63,7 @@ export const workerConfig = {
     privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n") ?? serviceAccount.private_key,
     storageBucket: read(process.env.FIREBASE_STORAGE_BUCKET)
   },
-  tmpRoot: path.resolve(repoRoot, process.env.WORKER_TMP_ROOT ?? ".forgeseo-builds")
+  tmpRoot: path.resolve(repoRoot, process.env.WORKER_TMP_ROOT ?? (process.env.VERCEL ? "/tmp/forgeseo-builds" : ".forgeseo-builds"))
 };
 
 export const useLocalQueue = (): boolean =>
