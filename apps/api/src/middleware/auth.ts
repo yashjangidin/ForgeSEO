@@ -53,7 +53,8 @@ export const requireAuth = async (
   }
 
   try {
-    const decoded = await getAuth().verifyIdToken(token);
+    const auth = await getAuth();
+    const decoded = await auth.verifyIdToken(token);
     request.user = {
       uid: decoded.uid,
       email: decoded.email

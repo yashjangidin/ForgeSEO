@@ -1,5 +1,5 @@
 import { applicationDefault, cert, initializeApp, type App } from "firebase-admin/app";
-import { getAuth as getFirebaseAuth, type Auth } from "firebase-admin/auth";
+import type { Auth } from "firebase-admin/auth";
 import { getFirestore as getFirebaseFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { config } from "../config.js";
@@ -38,6 +38,9 @@ export const getFirestore = (): Firestore => {
   return firestore;
 };
 
-export const getAuth = (): Auth => getFirebaseAuth(getFirebaseAdminApp());
+export const getAuth = async (): Promise<Auth> => {
+  const { getAuth: getFirebaseAuth } = await import("firebase-admin/auth");
+  return getFirebaseAuth(getFirebaseAdminApp());
+};
 
 export const getStorageBucket = () => getStorage(getFirebaseAdminApp()).bucket();
