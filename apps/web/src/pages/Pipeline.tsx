@@ -14,7 +14,19 @@ export const Pipeline = (): ReactElement => {
       setError("Missing job id.");
       return undefined;
     }
-    return subscribeToJob(jobId, setJob, (nextError) => setError(nextError.message));
+    return subscribeToJob(
+      jobId,
+      (nextJob) => {
+        setJob(nextJob);
+        setError(undefined);
+      },
+      (nextError) => {
+        if (/database is closing|hidden|offline|indexeddb/i.test(nextError.message)) {
+          return;
+        }
+        setError(nextError.message);
+      }
+    );
   }, [jobId]);
 
   return (

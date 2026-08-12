@@ -244,4 +244,9 @@ export interface CapabilityState {
   storage: boolean;
   generationEnabled: boolean;
   disabledReason?: string;
+  runtime?: {
+    commitSha?: string;
+    deploymentId?: string;
+    environment?: string;
+  };
 }

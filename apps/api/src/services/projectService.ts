@@ -138,7 +138,7 @@ export class ProjectService {
     };
 
     if (config.generationMode === "direct") {
-      await scheduleBackgroundTask(runDirectGeneration(generationPayload), `Direct generation job ${jobId}`);
+      await scheduleBackgroundTask(() => runDirectGeneration(generationPayload), `Direct generation job ${jobId}`);
       return {
         projectId: project.id,
         jobId,

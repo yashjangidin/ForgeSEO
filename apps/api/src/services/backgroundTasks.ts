@@ -1,16 +1,19 @@
 export const scheduleBackgroundTask = async (
-  task: Promise<unknown>,
+  taskFactory: () => Promise<unknown>,
   label: string
 ): Promise<void> => {
-  const guardedTask = task.catch((error) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`${label} failed: ${message}`);
-  });
+  const runGuardedTask = (): Promise<void> =>
+    taskFactory()
+      .then(() => undefined)
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`${label} failed: ${message}`);
+      });
 
   if (process.env.VERCEL) {
     try {
       const { waitUntil } = await import("@vercel/functions");
-      waitUntil(guardedTask);
+      waitUntil(runGuardedTask());
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -18,5 +21,5 @@ export const scheduleBackgroundTask = async (
     }
   }
 
-  void guardedTask;
+  void runGuardedTask();
 };

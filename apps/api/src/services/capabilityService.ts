@@ -43,6 +43,11 @@ export const getRuntimeCapabilityState = async () => {
     generationEnabled,
     disabledReason: generationEnabled
       ? undefined
-      : `Generation is disabled until these integrations are configured: ${missing.join(", ")}.`
+      : `Generation is disabled until these integrations are configured: ${missing.join(", ")}.`,
+    runtime: {
+      commitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GIT_COMMIT_SHA,
+      deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_URL,
+      environment: process.env.VERCEL_ENV ?? config.nodeEnv
+    }
   };
 };
