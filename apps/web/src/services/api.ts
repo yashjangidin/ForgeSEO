@@ -1,6 +1,21 @@
 import type { CapabilityState, GenerationJob, StartGenerationRequest, StartGenerationResponse, TemplateSummary } from "@forgeseo/shared";
 import { auth } from "./firebase";
 
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly details: {
+      url?: string;
+      status?: number;
+      statusText?: string;
+      contentType?: string;
+      body?: string;
+    } = {}
+  ) {
+    super(message);
+  }
+}
+
 const configuredApiBaseUrl = String(import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
 const configuredFallbackApiBaseUrl = String(import.meta.env.VITE_API_FALLBACK_BASE_URL ?? "").trim().replace(/\/$/, "");
 const isLocalApiBaseUrl = (url: string): boolean => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(url);
@@ -18,6 +33,15 @@ const firstApiBaseUrl = (): string => apiBaseUrls[0] ?? "";
 const withCacheBuster = (path: string): string => {
   const separator = path.includes("?") ? "&" : "?";
   return `${path}${separator}_=${Date.now()}`;
+};
+
+const parseJsonObject = (input: string): { message?: string; error?: string } | undefined => {
+  try {
+    const parsed = JSON.parse(input) as unknown;
+    return parsed && typeof parsed === "object" ? parsed as { message?: string; error?: string } : undefined;
+  } catch {
+    return undefined;
+  }
 };
 
 const fetchWithApiFallback = async (path: string, init?: RequestInit): Promise<Response> => {
@@ -38,7 +62,13 @@ const fetchWithApiFallback = async (path: string, init?: RequestInit): Promise<R
         return response;
       }
       lastResponse = response;
-      lastError = new Error(`API request failed with HTTP ${response.status}.`);
+      lastError = new ApiRequestError(`API request failed with HTTP ${response.status}.`, {
+        url: response.url,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get("content-type") ?? undefined,
+        body: await response.clone().text().catch(() => "")
+      });
     } catch (error) {
       lastError = error;
     }
@@ -57,16 +87,26 @@ const fetchWithApiFallback = async (path: string, init?: RequestInit): Promise<R
 const readJsonResponse = async <T>(response: Response, fallbackMessage: string): Promise<T> => {
   const contentType = response.headers.get("content-type") ?? "";
   if (!response.ok) {
-    const body = contentType.includes("application/json")
-      ? ((await response.json().catch(() => ({}))) as { message?: string })
-      : { message: await response.text().catch(() => "") };
-    throw new Error(body.message || `${fallbackMessage} HTTP ${response.status}.`);
+    const responseText = await response.text().catch(() => "");
+    const parsedBody = contentType.includes("application/json") ? parseJsonObject(responseText || "{}") : undefined;
+    const parsed = typeof parsedBody === "object" && parsedBody ? parsedBody : undefined;
+    throw new ApiRequestError(parsed?.message || parsed?.error || `${fallbackMessage} HTTP ${response.status}.`, {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      body: responseText.slice(0, 2000)
+    });
   }
   if (!contentType.includes("application/json")) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `${fallbackMessage} Expected JSON from ${response.url}, but received ${contentType || "unknown content"}: ${body.slice(0, 80)}`
-    );
+    throw new ApiRequestError(`${fallbackMessage} Expected JSON from ${response.url}, but received ${contentType || "unknown content"}.`, {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      body: body.slice(0, 2000)
+    });
   }
   return response.json() as Promise<T>;
 };
