@@ -35,13 +35,42 @@ const withCacheBuster = (path: string): string => {
   return `${path}${separator}_=${Date.now()}`;
 };
 
-const parseJsonObject = (input: string): { message?: string; error?: string } | undefined => {
+type ApiErrorBody = {
+  message?: string;
+  error?: unknown;
+  issues?: Array<{ path?: string; message?: string }>;
+};
+
+const parseJsonObject = (input: string): ApiErrorBody | undefined => {
   try {
     const parsed = JSON.parse(input) as unknown;
-    return parsed && typeof parsed === "object" ? parsed as { message?: string; error?: string } : undefined;
+    return parsed && typeof parsed === "object" ? parsed as ApiErrorBody : undefined;
   } catch {
     return undefined;
   }
+};
+
+const formatUnknownDetail = (value: unknown): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+const buildApiErrorMessage = (body: ApiErrorBody | undefined, fallback: string): string => {
+  const issues = body?.issues
+    ?.map((issue) => [issue.path, issue.message].filter(Boolean).join(": "))
+    .filter(Boolean)
+    .join(" ");
+  const detail = formatUnknownDetail(body?.error);
+  return [issues || body?.message || fallback, detail].filter(Boolean).join("\n");
 };
 
 const fetchWithApiFallback = async (path: string, init?: RequestInit): Promise<Response> => {
@@ -90,7 +119,7 @@ const readJsonResponse = async <T>(response: Response, fallbackMessage: string):
     const responseText = await response.text().catch(() => "");
     const parsedBody = contentType.includes("application/json") ? parseJsonObject(responseText || "{}") : undefined;
     const parsed = typeof parsedBody === "object" && parsedBody ? parsedBody : undefined;
-    throw new ApiRequestError(parsed?.message || parsed?.error || `${fallbackMessage} HTTP ${response.status}.`, {
+    throw new ApiRequestError(buildApiErrorMessage(parsed, `${fallbackMessage} HTTP ${response.status}.`), {
       url: response.url,
       status: response.status,
       statusText: response.statusText,
@@ -111,12 +140,12 @@ const readJsonResponse = async <T>(response: Response, fallbackMessage: string):
   return response.json() as Promise<T>;
 };
 
-const getIdToken = async (): Promise<string> => {
+const getIdToken = async (forceRefresh = false): Promise<string> => {
   const user = auth?.currentUser;
   if (!user) {
     throw new Error("Sign in to continue.");
   }
-  return user.getIdToken();
+  return user.getIdToken(forceRefresh);
 };
 
 export const getCapabilities = async (): Promise<CapabilityState> => {
@@ -134,7 +163,7 @@ export const getTemplates = async (): Promise<TemplateSummary[]> => {
 };
 
 export const startGeneration = async (payload: StartGenerationRequest): Promise<StartGenerationResponse> => {
-  const token = await getIdToken();
+  const token = await getIdToken(true);
   const response = await fetchWithApiFallback("/api/generation/start", {
     method: "POST",
     headers: {
@@ -145,19 +174,22 @@ export const startGeneration = async (payload: StartGenerationRequest): Promise<
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { message?: string; issues?: Array<{ path?: string; message?: string }> };
-    const issues = body.issues
-      ?.map((issue) => [issue.path, issue.message].filter(Boolean).join(": "))
-      .filter(Boolean)
-      .join(" ");
-    throw new Error(issues || body.message || "Could not start website generation.");
+    const responseText = await response.text().catch(() => "");
+    const body = parseJsonObject(responseText || "{}");
+    throw new ApiRequestError(buildApiErrorMessage(body, "Could not start website generation."), {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      contentType: response.headers.get("content-type") ?? undefined,
+      body: responseText.slice(0, 2000)
+    });
   }
 
   return readJsonResponse<StartGenerationResponse>(response, "Could not start website generation.");
 };
 
 export const getGenerationJob = async (jobId: string): Promise<GenerationJob> => {
-  const token = await getIdToken();
+  const token = await getIdToken(true);
   const response = await fetchWithApiFallback(withCacheBuster(`/api/generation/jobs/${jobId}`), {
     headers: {
       Authorization: `Bearer ${token}`

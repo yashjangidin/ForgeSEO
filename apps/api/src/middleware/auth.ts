@@ -12,15 +12,12 @@ export interface AuthenticatedRequest extends Request {
 interface DecodedTokenPayload {
   aud?: string;
   email?: string;
+  iss?: string;
   user_id?: string;
   sub?: string;
 }
 
-const decodeLocalDevelopmentToken = (token: string): AuthenticatedRequest["user"] | undefined => {
-  if (config.nodeEnv === "production") {
-    return undefined;
-  }
-
+const decodeTokenPayload = (token: string): DecodedTokenPayload | undefined => {
   const [, payload] = token.split(".");
   if (!payload) {
     return undefined;
@@ -28,16 +25,35 @@ const decodeLocalDevelopmentToken = (token: string): AuthenticatedRequest["user"
 
   try {
     const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decoded = JSON.parse(Buffer.from(normalizedPayload, "base64").toString("utf8")) as DecodedTokenPayload;
-    const uid = decoded.user_id ?? decoded.sub;
-    if (!uid || (decoded.aud && config.firebase.projectId && decoded.aud !== config.firebase.projectId)) {
-      return undefined;
-    }
-    return { uid, email: decoded.email };
+    return JSON.parse(Buffer.from(normalizedPayload, "base64").toString("utf8")) as DecodedTokenPayload;
   } catch {
     return undefined;
   }
 };
+
+const decodeLocalDevelopmentToken = (token: string): AuthenticatedRequest["user"] | undefined => {
+  if (config.nodeEnv === "production") {
+    return undefined;
+  }
+
+  const decoded = decodeTokenPayload(token);
+  const uid = decoded?.user_id ?? decoded?.sub;
+  if (!uid || (decoded?.aud && config.firebase.projectId && decoded.aud !== config.firebase.projectId)) {
+    return undefined;
+  }
+  return { uid, email: decoded?.email };
+};
+
+const getAuthErrorCode = (error: unknown): string | undefined => {
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return undefined;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+};
+
+const getAuthErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 export const requireAuth = async (
   request: AuthenticatedRequest,
@@ -69,6 +85,26 @@ export const requireAuth = async (
       return;
     }
 
-    response.status(401).json({ message: "Your session could not be verified. Please sign in again." });
+    const decoded = decodeTokenPayload(token);
+    const code = getAuthErrorCode(error) ?? "firebase-auth/verify-id-token-failed";
+    const detail = getAuthErrorMessage(error);
+    console.warn("Firebase Admin token verification failed.", {
+      code,
+      detail,
+      expectedProjectId: config.firebase.projectId,
+      tokenAudience: decoded?.aud,
+      tokenIssuer: decoded?.iss
+    });
+
+    response.status(401).json({
+      message: "Your session could not be verified. Please sign in again.",
+      error: {
+        code,
+        detail,
+        expectedProjectId: config.firebase.projectId,
+        tokenAudience: decoded?.aud,
+        tokenIssuer: decoded?.iss
+      }
+    });
   }
 };
