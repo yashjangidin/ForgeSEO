@@ -7,12 +7,72 @@ import { Upload } from "lucide-react";
 import { continueGenerationWithImages } from "../services/api";
 import { subscribeToJob } from "../services/jobs";
 
+const maxContinuePayloadChars = 3_200_000;
+const maxUploadDimension = 1400;
+const minUploadDimension = 720;
+const rasterImageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+
 const fileToDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
   reader.onerror = () => reject(new Error("Could not read uploaded image."));
   reader.readAsDataURL(file);
 });
+
+const loadImage = (dataUrl: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error("Could not prepare uploaded image."));
+  image.src = dataUrl;
+});
+
+const canvasToDataUrl = async (canvas: HTMLCanvasElement, quality: number): Promise<string> => {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+  if (!blob) {
+    return canvas.toDataURL("image/jpeg", quality);
+  }
+  return fileToDataUrl(new File([blob], "compressed.webp", { type: "image/webp" }));
+};
+
+const compressImageForUpload = async (file: File, maxDataUrlLength: number): Promise<{ dataUrl: string; fileName: string }> => {
+  const originalDataUrl = await fileToDataUrl(file);
+  if (!rasterImageTypes.has(file.type)) {
+    if (originalDataUrl.length > maxDataUrlLength) {
+      throw new Error(`${file.name} is too large to upload. Use a smaller raster image, or use Image URL mode for this image.`);
+    }
+    return { dataUrl: originalDataUrl, fileName: file.name };
+  }
+
+  const image = await loadImage(originalDataUrl);
+  const scaleForDimension = (dimension: number): number => Math.min(1, dimension / Math.max(image.width, image.height));
+  const render = async (dimension: number, quality: number): Promise<string> => {
+    const scale = scaleForDimension(dimension);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Could not compress uploaded image.");
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvasToDataUrl(canvas, quality);
+  };
+
+  let dimension = maxUploadDimension;
+  for (const quality of [0.82, 0.72, 0.62, 0.52]) {
+    const compressed = await render(dimension, quality);
+    if (compressed.length <= maxDataUrlLength) {
+      return { dataUrl: compressed, fileName: file.name.replace(/\.[^.]+$/, "") + ".webp" };
+    }
+    dimension = Math.max(minUploadDimension, Math.round(dimension * 0.82));
+  }
+
+  const smallest = await render(minUploadDimension, 0.48);
+  if (smallest.length > maxDataUrlLength) {
+    throw new Error(`${file.name} is still too large after compression. Use a smaller image, or use Image URL mode.`);
+  }
+  return { dataUrl: smallest, fileName: file.name.replace(/\.[^.]+$/, "") + ".webp" };
+};
 
 export const Pipeline = (): ReactElement => {
   const { jobId } = useParams();
@@ -25,18 +85,23 @@ export const Pipeline = (): ReactElement => {
       if (!jobId || !job?.imageRequirements?.length) {
         throw new Error("Missing image prompts.");
       }
+      const imageInputs = job.imageRequirements.map((requirement) => {
+        const upload = uploads[requirement.id];
+        if (!upload) {
+          throw new Error(`Upload an image for ${requirement.label}.`);
+        }
+        return {
+          requirementId: requirement.id,
+          dataUrl: upload.dataUrl,
+          fileName: upload.fileName
+        };
+      });
+      const payloadSize = JSON.stringify({ imageInputs }).length;
+      if (payloadSize > maxContinuePayloadChars) {
+        throw new Error("The uploaded image batch is too large for Vercel. Upload smaller images, reduce the image count, or use Image URL mode.");
+      }
       return continueGenerationWithImages(jobId, {
-        imageInputs: job.imageRequirements.map((requirement) => {
-          const upload = uploads[requirement.id];
-          if (!upload) {
-            throw new Error(`Upload an image for ${requirement.label}.`);
-          }
-          return {
-            requirementId: requirement.id,
-            dataUrl: upload.dataUrl,
-            fileName: upload.fileName
-          };
-        })
+        imageInputs
       });
     }
   });
@@ -116,8 +181,10 @@ export const Pipeline = (): ReactElement => {
                             if (!file) {
                               return;
                             }
-                            void fileToDataUrl(file).then((dataUrl) => {
-                              setUploads((current) => ({ ...current, [requirement.id]: { dataUrl, fileName: file.name } }));
+                            const imageCount = job.imageRequirements?.length || 1;
+                            const maxDataUrlLength = Math.floor(maxContinuePayloadChars / imageCount);
+                            void compressImageForUpload(file, maxDataUrlLength).then((upload) => {
+                              setUploads((current) => ({ ...current, [requirement.id]: upload }));
                             }).catch((nextError: unknown) => {
                               setError(nextError instanceof Error ? nextError.message : "Could not read uploaded image.");
                             });
