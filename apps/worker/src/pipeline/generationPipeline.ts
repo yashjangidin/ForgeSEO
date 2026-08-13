@@ -6,6 +6,7 @@ import { ImageGenerationService } from "../services/imageGenerationService.js";
 import { JobRepository } from "../services/jobRepository.js";
 import { StorageService } from "../services/storageService.js";
 import type { GenerationEngineRunner, GenerationState } from "./types.js";
+import type { TemplateContent } from "../templates/templateContent.js";
 
 export interface RunPipelineInput {
   jobId: string;
@@ -35,27 +36,25 @@ export class GenerationPipeline {
       }
       const project = await this.jobs.loadProject(input.projectId);
       const projectWithJob = { ...project, lastGenerationJobId: input.jobId };
+      const existingJob = input.startAtEngine ? await this.jobs.loadJob(input.jobId) : undefined;
       const providedImages = input.imageInputs?.length
         ? ImageGenerationService.uploadedImagesFromInputs(buildImageRequirements(project.wizardConfig), input.imageInputs)
         : undefined;
       let state: GenerationState = {
         project: projectWithJob,
         wizardConfig: project.wizardConfig,
+        templateContent: existingJob?.templateContentSnapshot as TemplateContent | undefined,
         generatedImages: providedImages,
         pages: [],
         assets: [],
-        artifacts: []
+        artifacts: providedImages?.map((image) => ({
+          relativePath: image.relativePath,
+          content: image.content,
+          contentType: image.contentType
+        })) ?? []
       };
 
       const engines: GenerationEngineRunner[] = [
-        new ImageGeneratorEngine(
-          project.wizardConfig.imageSourceMode === "url" || input.aiProvider === "openai" || input.openAiApiKey || workerConfig.openAiApiKey
-            ? new ImageGenerationService({
-                apiKey: input.openAiApiKey ?? (input.aiProvider === "openai" ? input.aiApiKey : undefined),
-                model: "gpt-image-1"
-              })
-            : undefined
-        ),
         new StructuredJsonGeneratorEngine(
           workerConfig.structuredJsonProvider === "openai"
             ? new AiGenerationService({
@@ -65,12 +64,23 @@ export class GenerationPipeline {
               })
             : undefined
         ),
+        new ImageGeneratorEngine(
+          project.wizardConfig.imageSourceMode === "url" || input.aiProvider === "openai" || input.openAiApiKey || workerConfig.openAiApiKey
+            ? new ImageGenerationService({
+                apiKey: input.openAiApiKey ?? (input.aiProvider === "openai" ? input.aiApiKey : undefined),
+                model: "gpt-image-1"
+              })
+            : undefined
+        ),
         new TemplateRendererEngine(),
         new PreviewBuilderEngine(),
         new ZipExportEngine()
       ];
       const startIndex = input.startAtEngine ? engines.findIndex((engine) => engine.name === input.startAtEngine) : 0;
       const enginesToRun = startIndex > 0 ? engines.slice(startIndex) : engines;
+      if (providedImages?.length && startIndex > ENGINE_ORDER.indexOf("image-generator")) {
+        await this.jobs.completeEngine(input.jobId, "image-generator", Math.floor(((ENGINE_ORDER.indexOf("image-generator") + 1) / engines.length) * 95), `Resolved ${providedImages.length} uploaded website images.`);
+      }
 
       for (const [index, engine] of enginesToRun.entries()) {
         currentEngine = engine.name;
@@ -80,7 +90,7 @@ export class GenerationPipeline {
         const result = await engine.run(state);
         state = result.state;
         if (result.paused?.reason === "waiting-for-images") {
-          await this.jobs.waitForImages(input.jobId, result.paused.requirements, result.task);
+          await this.jobs.waitForImages(input.jobId, result.paused.requirements, result.task, state.templateContent);
           return;
         }
         const completedProgress = Math.floor(((absoluteIndex + 1) / engines.length) * 95);

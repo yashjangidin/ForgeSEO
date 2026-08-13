@@ -225,7 +225,7 @@ export class ProjectService {
       jobId,
       projectId: job.projectId,
       userId,
-      startAtEngine: "image-generator",
+      startAtEngine: "template-renderer",
       imageInputs: request.imageInputs
     }), `Resume generation job ${jobId} after image upload`);
 

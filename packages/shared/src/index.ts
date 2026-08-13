@@ -24,8 +24,8 @@ export type GenerationStatus =
 export type EngineStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export const ENGINE_ORDER = [
-  "image-generator",
   "structured-json-generator",
+  "image-generator",
   "template-renderer",
   "preview-builder",
   "zip-export"
@@ -169,10 +169,12 @@ const requirementSlug = (input: string): string =>
 const imagePromptForRequirement = (
   config: Pick<WizardConfig, "businessName" | "businessDescription" | "industry" | "location" | "homePageKeywords">,
   label: string,
-  variation: number
+  variation: number,
+  keyword?: string
 ): string => [
   `Create a professional website image for ${config.businessName}.`,
   `Image purpose: ${label}.`,
+  keyword ? `Primary keyword: ${keyword}.` : undefined,
   `Industry: ${config.industry}.`,
   config.location ? `Location/context: ${config.location}.` : undefined,
   config.homePageKeywords?.length ? `Content themes: ${config.homePageKeywords.join(", ")}.` : undefined,
@@ -197,7 +199,7 @@ export const buildImageRequirements = (config: WizardConfig): ImageRequirement[]
         pageIndex,
         imageIndex,
         label,
-        prompt: imagePromptForRequirement(config, label, variation),
+        prompt: imagePromptForRequirement(config, label, variation, config.homePageKeywords?.[pageIndex % (config.homePageKeywords.length || 1)]),
         status: "pending"
       });
       variation += 1;
@@ -221,7 +223,7 @@ export const buildImageRequirements = (config: WizardConfig): ImageRequirement[]
           pageIndex,
           imageIndex: 0,
           label,
-          prompt: imagePromptForRequirement(config, label, variation),
+          prompt: imagePromptForRequirement(config, label, variation, keyword),
           status: "pending",
           serviceKeyword: keyword
         });
@@ -300,6 +302,7 @@ export interface GenerationJob {
   checkpoints: EngineCheckpoint[];
   imageSourceMode?: ImageSourceMode;
   imageRequirements?: ImageRequirement[];
+  templateContentSnapshot?: unknown;
   result?: GenerationResult;
 }
 

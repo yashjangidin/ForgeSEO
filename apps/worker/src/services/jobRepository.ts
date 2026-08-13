@@ -3,6 +3,8 @@ import { COLLECTIONS, type GeneratedAsset, type GeneratedPage, type GenerationEn
 import { firestore } from "../firebaseAdmin.js";
 import { LocalDataStore, useLocalDataStore } from "./localDataStore.js";
 
+const firestoreSafeSnapshot = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
 export class JobRepository {
   private readonly localData = new LocalDataStore();
 
@@ -88,16 +90,34 @@ export class JobRepository {
     await this.addLog(jobId, engine, "info", task);
   }
 
-  async waitForImages(jobId: string, requirements: ImageRequirement[], task: string): Promise<void> {
+  async waitForImages(jobId: string, requirements: ImageRequirement[], task: string, templateContentSnapshot?: unknown): Promise<void> {
+    const safeTemplateContentSnapshot = templateContentSnapshot ? firestoreSafeSnapshot(templateContentSnapshot) : undefined;
     await this.patchJob(jobId, {
       status: "waiting-for-images",
       currentEngine: "image-generator",
       currentTask: task,
       progress: 20,
       imageRequirements: requirements,
-      imageSourceMode: "prompt-upload"
+      imageSourceMode: "prompt-upload",
+      ...(safeTemplateContentSnapshot ? { templateContentSnapshot: safeTemplateContentSnapshot } : {})
     });
     await this.addLog(jobId, "image-generator", "info", task);
+  }
+
+  async loadJob(jobId: string): Promise<GenerationJob> {
+    if (useLocalDataStore()) {
+      const job = await this.localData.getJob(jobId);
+      if (!job) {
+        throw new Error(`Generation job ${jobId} was not found.`);
+      }
+      return job;
+    }
+
+    const snapshot = await this.db.collection(COLLECTIONS.generationJobs).doc(jobId).get();
+    if (!snapshot.exists) {
+      throw new Error(`Generation job ${jobId} was not found.`);
+    }
+    return snapshot.data() as GenerationJob;
   }
 
   async resumeAfterImages(jobId: string): Promise<void> {

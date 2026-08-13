@@ -329,6 +329,43 @@ const servicePageContent = (config: WizardConfig, content: TemplateContent, keyw
   </section>`;
 };
 
+const promptText = (items: Array<string | undefined>): string =>
+  items
+    .map((item) => stripHtml(item ?? "").trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 1800);
+
+const imageRequirementsForContent = (config: WizardConfig, content: TemplateContent): ImageRequirement[] =>
+  buildImageRequirements(config).map((requirement) => {
+    if (requirement.kind === "home") {
+      const homePage = content.homePages?.[requirement.pageIndex];
+      const pageKeyword = config.homePageKeywords?.[requirement.pageIndex % (config.homePageKeywords.length || 1)];
+      return {
+        ...requirement,
+        prompt: [
+          requirement.prompt,
+          pageKeyword ? `Home page target keyword: ${pageKeyword}.` : undefined,
+          homePage ? `Generated home page title: ${homePage.title}.` : undefined,
+          homePage ? `Generated home page summary: ${promptText([homePage.intro, homePage.sections[0]?.heading, homePage.sections[0]?.body])}` : undefined,
+          "Create an image that visually supports this exact generated home page content."
+        ].filter(Boolean).join("\n")
+      };
+    }
+
+    const servicePage = content.servicePages?.find((page) => page.keyword.toLowerCase() === requirement.serviceKeyword?.toLowerCase());
+    return {
+      ...requirement,
+      prompt: [
+        requirement.prompt,
+        requirement.serviceKeyword ? `Service page keyword: ${requirement.serviceKeyword}.` : undefined,
+        servicePage ? `Generated service page title: ${servicePage.title}.` : undefined,
+        servicePage ? `Generated service page summary: ${promptText([servicePage.intro, servicePage.sections[0]?.heading, servicePage.sections[0]?.body])}` : undefined,
+        "Create one hero-style image for the start of this exact service page."
+      ].filter(Boolean).join("\n")
+    };
+  });
+
 const contentForRenderTarget = (config: WizardConfig, content: TemplateContent, serviceKeywords: string[], pageIndex: number, imageOptions: RenderImageOptions = {}): TemplateContent => {
   const structuredHomePage = content.homePages?.[pageIndex];
   const homeContent = structuredHomePage ? structuredHomeContentToHtml(structuredHomePage, config, imageOptions) : content.pageContent.home;
@@ -589,7 +626,8 @@ export class ImageGeneratorEngine implements GenerationEngineRunner {
   constructor(private readonly imageService?: WebsiteImageService) {}
 
   async run(state: GenerationState) {
-    const requirements = buildImageRequirements(state.wizardConfig);
+    const templateContent = state.templateContent ?? createFallbackTemplateContent(state.wizardConfig);
+    const requirements = imageRequirementsForContent(state.wizardConfig, templateContent);
     if (requirements.length === 0) {
       return {
         task: "Skipped image handling because no page images were requested.",
