@@ -53,10 +53,12 @@ export class GenerationPipeline {
           contentType: image.contentType
         })) ?? []
       };
+      const startIndex = input.startAtEngine ? ENGINE_ORDER.indexOf(input.startAtEngine) : 0;
+      const shouldRunStructuredJson = startIndex <= ENGINE_ORDER.indexOf("structured-json-generator");
 
       const engines: GenerationEngineRunner[] = [
         new StructuredJsonGeneratorEngine(
-          workerConfig.structuredJsonProvider === "openai"
+          shouldRunStructuredJson && workerConfig.structuredJsonProvider === "openai"
             ? new AiGenerationService({
                 provider: input.aiProvider ?? "openai",
                 apiKey: input.aiApiKey ?? input.openAiApiKey,
@@ -76,7 +78,6 @@ export class GenerationPipeline {
         new PreviewBuilderEngine(),
         new ZipExportEngine()
       ];
-      const startIndex = input.startAtEngine ? engines.findIndex((engine) => engine.name === input.startAtEngine) : 0;
       const enginesToRun = startIndex > 0 ? engines.slice(startIndex) : engines;
       if (providedImages?.length && startIndex > ENGINE_ORDER.indexOf("image-generator")) {
         await this.jobs.completeEngine(input.jobId, "image-generator", Math.floor(((ENGINE_ORDER.indexOf("image-generator") + 1) / engines.length) * 95), `Resolved ${providedImages.length} uploaded website images.`);
