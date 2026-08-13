@@ -1,5 +1,5 @@
 import type { Transaction } from "firebase-admin/firestore";
-import { COLLECTIONS, type GeneratedAsset, type GeneratedPage, type GenerationEngine, type GenerationJob, type GenerationResult, type JobLogEntry, type Project } from "@forgeseo/shared";
+import { COLLECTIONS, type GeneratedAsset, type GeneratedPage, type GenerationEngine, type GenerationJob, type GenerationResult, type ImageRequirement, type JobLogEntry, type Project } from "@forgeseo/shared";
 import { firestore } from "../firebaseAdmin.js";
 import { LocalDataStore, useLocalDataStore } from "./localDataStore.js";
 
@@ -86,6 +86,27 @@ export class JobRepository {
     });
     await this.updateCheckpoint(jobId, engine, "completed");
     await this.addLog(jobId, engine, "info", task);
+  }
+
+  async waitForImages(jobId: string, requirements: ImageRequirement[], task: string): Promise<void> {
+    await this.patchJob(jobId, {
+      status: "waiting-for-images",
+      currentEngine: "image-generator",
+      currentTask: task,
+      progress: 20,
+      imageRequirements: requirements,
+      imageSourceMode: "prompt-upload"
+    });
+    await this.addLog(jobId, "image-generator", "info", task);
+  }
+
+  async resumeAfterImages(jobId: string): Promise<void> {
+    await this.patchJob(jobId, {
+      status: "running",
+      currentEngine: "image-generator",
+      currentTask: "Uploaded images received. Continuing generation."
+    });
+    await this.addLog(jobId, "image-generator", "info", "Uploaded images received. Continuing generation.");
   }
 
   async failJob(jobId: string, engine: GenerationEngine | "system", message: string): Promise<void> {

@@ -16,6 +16,7 @@ export type GenerationStatus =
   | "queued"
   | "claimed"
   | "running"
+  | "waiting-for-images"
   | "completed"
   | "failed"
   | "cancelled";
@@ -23,8 +24,8 @@ export type GenerationStatus =
 export type EngineStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export const ENGINE_ORDER = [
-  "structured-json-generator",
   "image-generator",
+  "structured-json-generator",
   "template-renderer",
   "preview-builder",
   "zip-export"
@@ -51,6 +52,33 @@ export interface SocialLink {
 
 export interface ServiceKeywordGroup {
   keywords: string[];
+}
+
+export type ImageSourceMode =
+  | "forge"
+  | "prompt-upload"
+  | "url";
+
+export type ImageRequirementKind = "home" | "service";
+
+export interface ImageRequirement {
+  id: string;
+  kind: ImageRequirementKind;
+  pageIndex: number;
+  imageIndex: number;
+  label: string;
+  prompt: string;
+  status: "pending" | "uploaded" | "resolved";
+  serviceKeyword?: string;
+  fileName?: string;
+  sourceUrl?: string;
+}
+
+export interface UserImageInput {
+  requirementId: string;
+  dataUrl?: string;
+  url?: string;
+  fileName?: string;
 }
 
 export type ContactMode =
@@ -92,6 +120,11 @@ export interface WizardConfig {
   homePageKeywords?: string[];
   homeImageCount?: number;
   serviceImageCount?: number;
+  imageSourceMode?: ImageSourceMode;
+  imageUrls?: Array<{
+    requirementId: string;
+    url: string;
+  }>;
   location?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -114,6 +147,91 @@ export interface WizardConfig {
   anchorUrl?: string;
   selectedPages?: WebsitePageKind[];
 }
+
+const uniqueRequirementKeywords = (items: Array<string | undefined>): string[] =>
+  items.reduce<string[]>((values, item) => {
+    const normalized = item?.trim();
+    if (!normalized || values.some((value) => value.toLowerCase() === normalized.toLowerCase())) {
+      return values;
+    }
+    values.push(normalized);
+    return values;
+  }, []);
+
+const requirementSlug = (input: string): string =>
+  input
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase()
+    .slice(0, 60) || "image";
+
+const imagePromptForRequirement = (
+  config: Pick<WizardConfig, "businessName" | "businessDescription" | "industry" | "location" | "homePageKeywords">,
+  label: string,
+  variation: number
+): string => [
+  `Create a professional website image for ${config.businessName}.`,
+  `Image purpose: ${label}.`,
+  `Industry: ${config.industry}.`,
+  config.location ? `Location/context: ${config.location}.` : undefined,
+  config.homePageKeywords?.length ? `Content themes: ${config.homePageKeywords.join(", ")}.` : undefined,
+  `Business context: ${config.businessDescription}`,
+  "Style: polished editorial website asset, realistic or premium digital composition, clean lighting, high detail, no text, no watermarks, no logos.",
+  `Variation ${variation}: make this image distinct from the other required website images.`
+].filter(Boolean).join("\n");
+
+export const buildImageRequirements = (config: WizardConfig): ImageRequirement[] => {
+  const pageCount = Math.max(1, Math.min(50, config.pageCount ?? 1));
+  const homeImageCount = Math.max(0, Math.min(20, config.homeImageCount ?? 0));
+  const selectedPages = new Set<WebsitePageKind>(config.selectedPages?.length ? config.selectedPages : ["home", "about", "services", "contact"]);
+  const requirements: ImageRequirement[] = [];
+  let variation = 1;
+
+  for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+    for (let imageIndex = 0; imageIndex < homeImageCount; imageIndex += 1) {
+      const label = `Home page ${pageIndex + 1}, image ${imageIndex + 1}`;
+      requirements.push({
+        id: `home-${pageIndex + 1}-${imageIndex + 1}`,
+        kind: "home",
+        pageIndex,
+        imageIndex,
+        label,
+        prompt: imagePromptForRequirement(config, label, variation),
+        status: "pending"
+      });
+      variation += 1;
+    }
+  }
+
+  if (selectedPages.has("services")) {
+    const groups = Array.from({ length: pageCount }, (_, index) => {
+      const configuredGroup = config.serviceKeywordGroups?.[index]?.keywords ?? [];
+      const legacyKeyword = config.serviceKeywords?.[index] ?? (index === 0 ? config.dropdownLabel : undefined);
+      const keywords = uniqueRequirementKeywords([...configuredGroup, legacyKeyword]);
+      return keywords.length ? keywords : [config.industry];
+    });
+
+    for (const [pageIndex, group] of groups.entries()) {
+      for (const [keywordIndex, keyword] of group.entries()) {
+        const label = `Service page "${keyword}"`;
+        requirements.push({
+          id: `service-${pageIndex + 1}-${keywordIndex + 1}-${requirementSlug(keyword)}`,
+          kind: "service",
+          pageIndex,
+          imageIndex: 0,
+          label,
+          prompt: imagePromptForRequirement(config, label, variation),
+          status: "pending",
+          serviceKeyword: keyword
+        });
+        variation += 1;
+      }
+    }
+  }
+
+  return requirements;
+};
 
 export type ProjectWizardConfig = WizardConfig;
 
@@ -180,6 +298,8 @@ export interface GenerationJob {
   logs: JobLogEntry[];
   errors: string[];
   checkpoints: EngineCheckpoint[];
+  imageSourceMode?: ImageSourceMode;
+  imageRequirements?: ImageRequirement[];
   result?: GenerationResult;
 }
 
@@ -234,6 +354,10 @@ export interface StartGenerationResponse {
   projectId: string;
   jobId: string;
   status: GenerationStatus;
+}
+
+export interface ContinueGenerationRequest {
+  imageInputs: UserImageInput[];
 }
 
 export interface CapabilityState {

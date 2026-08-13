@@ -484,8 +484,8 @@ export const structuredHomeContentToHtml = (content: NonNullable<TemplateContent
 };
 
 export const structuredServiceContentToHtml = (content: NonNullable<TemplateContent["servicePages"]>[number], config: WizardConfig, options: RenderImageOptions = {}): string => {
-  const imageLimit = configuredImageCount(config.serviceImageCount);
-  const images = sharedImagePool(config, options).slice(0, imageLimit);
+  const imageLimit = config.serviceImageCount === 0 ? 0 : 1;
+  const images = (options.generatedImages?.length ? options.generatedImages : sharedImagePool({ ...config, serviceImageCount: 1 }, options)).slice(0, imageLimit);
   let insertedImages = 0;
   const addImage = (alt: string): string => {
     if (insertedImages >= imageLimit) {

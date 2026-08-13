@@ -3,6 +3,7 @@ import { z } from "zod";
 const requiredText = z.string().trim().min(2).max(4000);
 const optionalText = (max: number) => z.string().trim().max(max).optional();
 const logoDataUrlMaxLength = 7_000_000;
+const uploadedImageDataUrlMaxLength = 8_000_000;
 const optionalEmail = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
   z.string().email().optional()
@@ -45,6 +46,11 @@ export const startGenerationSchema = z.object({
     homePageKeywords: z.array(z.string().trim().min(1).max(180)).min(1).max(50).optional(),
     homeImageCount: z.coerce.number().int().min(0).max(20).optional(),
     serviceImageCount: z.coerce.number().int().min(0).max(20).optional(),
+    imageSourceMode: z.enum(["forge", "prompt-upload", "url"]).optional(),
+    imageUrls: z.array(z.object({
+      requirementId: z.string().trim().min(1).max(160),
+      url: requiredUrl
+    })).max(1000).optional(),
     location: z.string().trim().max(180).optional(),
     contactEmail: optionalEmail,
     contactPhone: z.string().trim().min(6).max(30).optional(),
@@ -75,4 +81,13 @@ export const startGenerationSchema = z.object({
     anchorUrl: optionalUrl,
     selectedPages: z.array(z.enum(["home", "about", "services", "contact"])).max(4).optional()
   })
+});
+
+export const continueGenerationSchema = z.object({
+  imageInputs: z.array(z.object({
+    requirementId: z.string().trim().min(1).max(160),
+    dataUrl: z.string().trim().regex(/^data:image\/(?:png|jpeg|jpg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/).max(uploadedImageDataUrlMaxLength).optional(),
+    url: requiredUrl.optional(),
+    fileName: z.string().trim().min(1).max(180).optional()
+  })).min(1).max(1000)
 });

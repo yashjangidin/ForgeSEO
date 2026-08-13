@@ -1,4 +1,4 @@
-import type { CapabilityState, GenerationJob, StartGenerationRequest, StartGenerationResponse, TemplateSummary } from "@forgeseo/shared";
+import type { CapabilityState, ContinueGenerationRequest, GenerationJob, StartGenerationRequest, StartGenerationResponse, TemplateSummary } from "@forgeseo/shared";
 import { auth } from "./firebase";
 
 export class ApiRequestError extends Error {
@@ -197,4 +197,18 @@ export const getGenerationJob = async (jobId: string): Promise<GenerationJob> =>
   });
 
   return readJsonResponse<GenerationJob>(response, "Could not load generation job.");
+};
+
+export const continueGenerationWithImages = async (jobId: string, payload: ContinueGenerationRequest): Promise<StartGenerationResponse> => {
+  const token = await getIdToken(true);
+  const response = await fetchWithApiFallback(`/api/generation/jobs/${jobId}/images/continue`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  return readJsonResponse<StartGenerationResponse>(response, "Could not continue website generation.");
 };

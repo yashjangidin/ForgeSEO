@@ -1,6 +1,6 @@
 import { Queue, type Queue as BullQueue } from "bullmq";
 import { Redis as IORedis } from "ioredis";
-import type { AiProvider } from "@forgeseo/shared";
+import type { AiProvider, GenerationEngine, UserImageInput } from "@forgeseo/shared";
 import { config, useLocalQueue } from "../config.js";
 import { enqueueLocalGeneration } from "./localQueue.js";
 
@@ -13,6 +13,8 @@ export interface GenerationQueuePayload {
   aiModel?: string;
   openAiApiKey?: string;
   openAiModel?: string;
+  startAtEngine?: GenerationEngine;
+  imageInputs?: UserImageInput[];
 }
 
 let generationQueue: BullQueue<GenerationQueuePayload> | undefined;

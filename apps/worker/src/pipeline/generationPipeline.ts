@@ -1,11 +1,11 @@
-import { ENGINE_ORDER, type AiProvider, type GenerationResult } from "@forgeseo/shared";
+import { ENGINE_ORDER, buildImageRequirements, type AiProvider, type GenerationEngine, type GenerationResult, type UserImageInput } from "@forgeseo/shared";
 import { workerConfig } from "../config.js";
 import { ImageGeneratorEngine, PreviewBuilderEngine, StructuredJsonGeneratorEngine, TemplateRendererEngine, ZipExportEngine } from "../engines/index.js";
 import { AiGenerationService } from "../services/aiGenerationService.js";
 import { ImageGenerationService } from "../services/imageGenerationService.js";
 import { JobRepository } from "../services/jobRepository.js";
 import { StorageService } from "../services/storageService.js";
-import type { GenerationState } from "./types.js";
+import type { GenerationEngineRunner, GenerationState } from "./types.js";
 
 export interface RunPipelineInput {
   jobId: string;
@@ -16,6 +16,8 @@ export interface RunPipelineInput {
   aiModel?: string;
   openAiApiKey?: string;
   openAiModel?: string;
+  startAtEngine?: GenerationEngine;
+  imageInputs?: UserImageInput[];
 }
 
 export class GenerationPipeline {
@@ -26,18 +28,34 @@ export class GenerationPipeline {
     let currentEngine: (typeof ENGINE_ORDER)[number] | "system" = "system";
 
     try {
-      await this.jobs.claimJob(input.jobId);
+      if (input.startAtEngine) {
+        await this.jobs.resumeAfterImages(input.jobId);
+      } else {
+        await this.jobs.claimJob(input.jobId);
+      }
       const project = await this.jobs.loadProject(input.projectId);
       const projectWithJob = { ...project, lastGenerationJobId: input.jobId };
+      const providedImages = input.imageInputs?.length
+        ? ImageGenerationService.uploadedImagesFromInputs(buildImageRequirements(project.wizardConfig), input.imageInputs)
+        : undefined;
       let state: GenerationState = {
         project: projectWithJob,
         wizardConfig: project.wizardConfig,
+        generatedImages: providedImages,
         pages: [],
         assets: [],
         artifacts: []
       };
 
-      const engines = [
+      const engines: GenerationEngineRunner[] = [
+        new ImageGeneratorEngine(
+          project.wizardConfig.imageSourceMode === "url" || input.aiProvider === "openai" || input.openAiApiKey || workerConfig.openAiApiKey
+            ? new ImageGenerationService({
+                apiKey: input.openAiApiKey ?? (input.aiProvider === "openai" ? input.aiApiKey : undefined),
+                model: "gpt-image-1"
+              })
+            : undefined
+        ),
         new StructuredJsonGeneratorEngine(
           workerConfig.structuredJsonProvider === "openai"
             ? new AiGenerationService({
@@ -47,26 +65,25 @@ export class GenerationPipeline {
               })
             : undefined
         ),
-        new ImageGeneratorEngine(
-          input.aiProvider === "openai" || input.openAiApiKey || workerConfig.openAiApiKey
-            ? new ImageGenerationService({
-                apiKey: input.openAiApiKey ?? (input.aiProvider === "openai" ? input.aiApiKey : undefined),
-                model: "gpt-image-1"
-              })
-            : undefined
-        ),
         new TemplateRendererEngine(),
         new PreviewBuilderEngine(),
         new ZipExportEngine()
       ];
+      const startIndex = input.startAtEngine ? engines.findIndex((engine) => engine.name === input.startAtEngine) : 0;
+      const enginesToRun = startIndex > 0 ? engines.slice(startIndex) : engines;
 
-      for (const [index, engine] of engines.entries()) {
+      for (const [index, engine] of enginesToRun.entries()) {
         currentEngine = engine.name;
-        const startingProgress = Math.floor((index / engines.length) * 100);
+        const absoluteIndex = ENGINE_ORDER.indexOf(engine.name);
+        const startingProgress = Math.floor((absoluteIndex / engines.length) * 100);
         await this.jobs.startEngine(input.jobId, engine.name, startingProgress, `Running ${engine.name}.`);
         const result = await engine.run(state);
         state = result.state;
-        const completedProgress = Math.floor(((index + 1) / engines.length) * 95);
+        if (result.paused?.reason === "waiting-for-images") {
+          await this.jobs.waitForImages(input.jobId, result.paused.requirements, result.task);
+          return;
+        }
+        const completedProgress = Math.floor(((absoluteIndex + 1) / engines.length) * 95);
         await this.jobs.completeEngine(input.jobId, engine.name, completedProgress, result.task);
       }
 

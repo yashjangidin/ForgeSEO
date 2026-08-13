@@ -1,4 +1,4 @@
-import type { GeneratedAsset, GeneratedPage, GenerationEngine, Project, WizardConfig } from "@forgeseo/shared";
+import type { GeneratedAsset, GeneratedPage, GenerationEngine, ImageRequirement, Project, WizardConfig } from "@forgeseo/shared";
 import type { SelectedTemplate, TemplateRenderReport } from "../templates/types.js";
 import type { TemplateContent } from "../templates/templateContent.js";
 
@@ -9,11 +9,17 @@ export interface BuildArtifact {
 }
 
 export interface GeneratedImageAsset {
+  requirementId: string;
+  kind: ImageRequirement["kind"];
+  pageIndex: number;
+  imageIndex: number;
+  serviceKeyword?: string;
   fileName: string;
   relativePath: string;
   content: Buffer;
   contentType: string;
   alt: string;
+  prompt: string;
 }
 
 export interface GenerationState {
@@ -36,6 +42,10 @@ export interface GenerationState {
 export interface EngineResult {
   task: string;
   state: GenerationState;
+  paused?: {
+    reason: "waiting-for-images";
+    requirements: ImageRequirement[];
+  };
 }
 
 export interface GenerationEngineRunner {

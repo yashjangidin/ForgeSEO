@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import path from "node:path";
-import { serviceKeywordToFileName, type AnchorLink, type GeneratedAsset, type GeneratedPage, type WebsitePageKind, type WizardConfig } from "@forgeseo/shared";
+import { buildImageRequirements, serviceKeywordToFileName, type AnchorLink, type GeneratedAsset, type GeneratedPage, type ImageRequirement, type WebsitePageKind, type WizardConfig } from "@forgeseo/shared";
 import { workerConfig } from "../config.js";
-import type { BuildArtifact, GenerationEngineRunner, GenerationState } from "../pipeline/types.js";
+import type { BuildArtifact, GeneratedImageAsset, GenerationEngineRunner, GenerationState } from "../pipeline/types.js";
 import { TemplateLibrary } from "../templates/templateLibrary.js";
 import { TemplateRenderer } from "../templates/templateRenderer.js";
 import { createFallbackTemplateContent, flattenTemplateContent, structuredAboutContentToHtml, structuredHomeContentToHtml, structuredServiceContentToHtml, type RenderImageOptions, type TemplateContent } from "../templates/templateContent.js";
@@ -16,7 +16,8 @@ interface StructuredJsonService {
 }
 
 interface WebsiteImageService {
-  generateWebsiteImages(config: WizardConfig): Promise<NonNullable<GenerationState["generatedImages"]>>;
+  generateWebsiteImages(config: WizardConfig, requirements: ImageRequirement[]): Promise<GeneratedImageAsset[]>;
+  resolveUrlImages(config: WizardConfig, requirements: ImageRequirement[]): Promise<GeneratedImageAsset[]>;
 }
 
 const stripHtml = (input: string): string =>
@@ -278,8 +279,24 @@ const canonicalForPage = (config: WizardConfig, outputPath: string, fallback: st
   }
 };
 
-const generatedImageSources = (state: Pick<GenerationState, "generatedImages">): string[] =>
-  state.generatedImages?.map((image) => `../../${image.relativePath}`) ?? [];
+const generatedImageSource = (image: GeneratedImageAsset): string => `../../${image.relativePath}`;
+
+const homeImageSources = (state: Pick<GenerationState, "generatedImages">, pageIndex: number): string[] =>
+  (state.generatedImages ?? [])
+    .filter((image) => image.kind === "home" && image.pageIndex === pageIndex)
+    .sort((first, second) => first.imageIndex - second.imageIndex)
+    .map(generatedImageSource);
+
+const serviceImageSources = (state: Pick<GenerationState, "generatedImages">, pageIndex: number, keyword: string): string[] =>
+  (state.generatedImages ?? [])
+    .filter((image) => (
+      image.kind === "service"
+      && image.pageIndex === pageIndex
+      && image.serviceKeyword?.toLowerCase() === keyword.toLowerCase()
+    ))
+    .sort((first, second) => first.imageIndex - second.imageIndex)
+    .slice(0, 1)
+    .map(generatedImageSource);
 
 const servicePageContent = (config: WizardConfig, content: TemplateContent, keyword: string, imageOptions: RenderImageOptions = {}): string => {
   const structuredPage = content.servicePages?.find((page) => page.keyword.toLowerCase() === keyword.toLowerCase());
@@ -343,7 +360,8 @@ const servicePageValues = (
   template: SelectedTemplate,
   serviceKeywords: string[],
   baseValues: Record<string, PlaceholderValue>,
-  imageOptions: RenderImageOptions = {}
+  pageIndex: number,
+  state: Pick<GenerationState, "generatedImages">
 ): Record<string, Record<string, PlaceholderValue>> => {
   let serviceIndex = 0;
   return template.manifest.supportedPages.reduce<Record<string, Record<string, PlaceholderValue>>>((pageValues, page) => {
@@ -352,6 +370,7 @@ const servicePageValues = (
     }
     const keyword = serviceKeywords[serviceIndex] ?? serviceKeywords[0] ?? content.dropdownLabel;
     serviceIndex += 1;
+    const imageOptions: RenderImageOptions = { generatedImages: serviceImageSources(state, pageIndex, keyword) };
     const metaDescription = `${config.businessName} ${keyword}: ${config.businessDescription}`.slice(0, 155);
     pageValues[page.output] = {
       HERO_TITLE: keyword,
@@ -570,11 +589,27 @@ export class ImageGeneratorEngine implements GenerationEngineRunner {
   constructor(private readonly imageService?: WebsiteImageService) {}
 
   async run(state: GenerationState) {
-    const requestedImageCount = Math.max(0, Math.min(10, Math.max(state.wizardConfig.homeImageCount ?? 0, state.wizardConfig.serviceImageCount ?? 0)));
-    if (requestedImageCount === 0) {
+    const requirements = buildImageRequirements(state.wizardConfig);
+    if (requirements.length === 0) {
       return {
-        task: "Skipped image generation because both image counts are set to 0.",
+        task: "Skipped image handling because no page images were requested.",
         state: { ...state, generatedImages: [] }
+      };
+    }
+
+    if (state.generatedImages?.length) {
+      return this.completedResult(state, state.generatedImages, `Resolved ${state.generatedImages.length} uploaded website images.`);
+    }
+
+    const mode = state.wizardConfig.imageSourceMode ?? "forge";
+    if (mode === "prompt-upload") {
+      return {
+        task: `Prepared ${requirements.length} image prompts. Upload images to continue generation.`,
+        state: { ...state, generatedImages: [] },
+        paused: {
+          reason: "waiting-for-images" as const,
+          requirements
+        }
       };
     }
 
@@ -586,41 +621,48 @@ export class ImageGeneratorEngine implements GenerationEngineRunner {
     }
 
     try {
-      const generatedImages = await this.imageService.generateWebsiteImages(state.wizardConfig);
-      return {
-        task: generatedImages.length
-          ? `Generated ${generatedImages.length} shared website images.`
-          : "Skipped image generation because no images were requested.",
-        state: {
-          ...state,
-          generatedImages,
-          assets: [
-            ...state.assets,
-            ...generatedImages.map((image) => ({
-              id: crypto.randomUUID(),
-              projectId: state.project.id,
-              jobId: state.project.lastGenerationJobId ?? "",
-              type: "image" as const,
-              path: image.relativePath,
-              url: "",
-              alt: image.alt,
-              createdAt: new Date().toISOString()
-            }))
-          ],
-          artifacts: [...state.artifacts, ...generatedImages.map((image) => ({
-            relativePath: image.relativePath,
-            content: image.content,
-            contentType: image.contentType
-          }))]
-        }
-      };
+      const generatedImages = mode === "url"
+        ? await this.imageService.resolveUrlImages(state.wizardConfig, requirements)
+        : await this.imageService.generateWebsiteImages(state.wizardConfig, requirements);
+      return this.completedResult(
+        state,
+        generatedImages,
+        mode === "url"
+          ? `Fetched ${generatedImages.length} website images from supplied URLs.`
+          : `Generated ${generatedImages.length} distinct website images.`
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Image generation failed.";
-      return {
-        task: `AI image generation failed; using built-in template images. ${message}`,
-        state: { ...state, generatedImages: [] }
-      };
+      throw new Error(`${mode === "url" ? "Image URL import" : "AI image generation"} failed: ${message}`);
     }
+  }
+
+  private completedResult(state: GenerationState, generatedImages: GeneratedImageAsset[], task: string) {
+    return {
+      task,
+      state: {
+        ...state,
+        generatedImages,
+        assets: [
+          ...state.assets,
+          ...generatedImages.map((image) => ({
+            id: crypto.randomUUID(),
+            projectId: state.project.id,
+            jobId: state.project.lastGenerationJobId ?? "",
+            type: "image" as const,
+            path: image.relativePath,
+            url: "",
+            alt: image.alt,
+            createdAt: new Date().toISOString()
+          }))
+        ],
+        artifacts: [...state.artifacts, ...generatedImages.map((image) => ({
+          relativePath: image.relativePath,
+          content: image.content,
+          contentType: image.contentType
+        }))]
+      }
+    };
   }
 }
 
@@ -688,12 +730,16 @@ export class TemplateRendererEngine implements GenerationEngineRunner {
     for (const target of renderTargets) {
       const insertedAnchorIndexes = new Set<number>();
       const targetServiceKeywords = serviceKeywordGroups[target.pageNumber - 1] ?? serviceKeywordGroups[0] ?? templateContent.serviceKeywords;
-      const imageOptions: RenderImageOptions = { generatedImages: generatedImageSources(state) };
+      const imageOptions: RenderImageOptions = { generatedImages: homeImageSources(state, target.pageNumber - 1) };
       const targetTemplateContent = contentForRenderTarget(state.wizardConfig, templateContent, targetServiceKeywords, target.pageNumber - 1, imageOptions);
       const targetValues = flattenTemplateContent(targetTemplateContent);
       targetValues.ABOUT_CONTENT = stripGeneratedArticleImages(String(targetValues.ABOUT_CONTENT ?? ""));
       const targetTemplate = templateWithSelectedPages(target.template, includedPages, targetServiceKeywords);
-      const result = await this.renderer.render(targetTemplate, targetValues, servicePageValues(state.wizardConfig, targetTemplateContent, targetTemplate, targetServiceKeywords, targetValues, imageOptions));
+      const result = await this.renderer.render(
+        targetTemplate,
+        targetValues,
+        servicePageValues(state.wizardConfig, targetTemplateContent, targetTemplate, targetServiceKeywords, targetValues, target.pageNumber - 1, state)
+      );
       if (result.report.missingRequiredPlaceholders.length > 0 || result.report.unreplacedPlaceholders.length > 0) {
         throw new Error(
           `Template rendering validation failed for "${targetTemplate.manifest.id}". Missing: ${result.report.missingRequiredPlaceholders.join(", ") || "none"}. Unreplaced: ${

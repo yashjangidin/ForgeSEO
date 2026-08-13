@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, Code2, Image as ImageIcon, Link as LinkIcon, LayoutTemplate, ListTree, Plus, Share2, Trash2 } from "lucide-react";
 import { useEffect, useState, type ReactElement } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ContactMode, ProjectWizardConfig, SocialPlatform, WebsitePageKind } from "@forgeseo/shared";
+import { buildImageRequirements, type ContactMode, type ImageSourceMode, type ProjectWizardConfig, type SocialPlatform, type WebsitePageKind } from "@forgeseo/shared";
 import { getTemplates, startGeneration } from "../services/api";
 import { getConnectedProvider, integrationCatalog, loadAiSettings } from "../services/settings";
 
@@ -17,7 +17,8 @@ interface WizardFormState {
   logoError: string;
   homePageKeywords: string;
   homeImageCount: string;
-  serviceImageCount: string;
+  imageSourceMode: ImageSourceMode;
+  imageUrls: Record<string, string>;
   location: string;
   contactEmail: string;
   contactPhone: string;
@@ -56,7 +57,8 @@ const initialForm: WizardFormState = {
   logoError: "",
   homePageKeywords: "",
   homeImageCount: "3",
-  serviceImageCount: "3",
+  imageSourceMode: "forge",
+  imageUrls: {},
   location: "",
   contactEmail: "",
   contactPhone: "",
@@ -263,7 +265,8 @@ export const ProjectWizard = (): ReactElement => {
     logoFileName: form.customLogoEnabled && form.logoFileName ? form.logoFileName : undefined,
     homePageKeywords: homePageKeywords.length ? homePageKeywords : undefined,
     homeImageCount: Number(form.homeImageCount) || 0,
-    serviceImageCount: Number(form.serviceImageCount) || 0,
+    serviceImageCount: form.selectedPages.includes("services") ? 1 : 0,
+    imageSourceMode: form.imageSourceMode,
     location: form.location || undefined,
     contactEmail: form.contactEmail || undefined,
     contactPhone: form.contactPhone || undefined,
@@ -286,6 +289,25 @@ export const ProjectWizard = (): ReactElement => {
       .map((anchor) => ({ text: anchor.text.trim(), url: anchor.url.trim() }))
       .filter((anchor) => anchor.text && anchor.url)
   };
+  const imageRequirements = buildImageRequirements(wizardConfig);
+  const imageUrlsAreComplete = form.imageSourceMode !== "url" || imageRequirements.every((requirement) => form.imageUrls[requirement.id]?.trim());
+  const updateImageUrl = (requirementId: string, url: string): void => {
+    setForm((current) => ({
+      ...current,
+      imageUrls: {
+        ...current.imageUrls,
+        [requirementId]: url
+      }
+    }));
+  };
+  const wizardConfigWithImageUrls: ProjectWizardConfig = {
+    ...wizardConfig,
+    imageUrls: form.imageSourceMode === "url"
+      ? imageRequirements
+          .map((requirement) => ({ requirementId: requirement.id, url: form.imageUrls[requirement.id]?.trim() ?? "" }))
+          .filter((item) => item.url)
+      : undefined
+  };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -301,11 +323,11 @@ export const ProjectWizard = (): ReactElement => {
         className="mt-7 grid gap-7"
         onSubmit={(event) => {
           event.preventDefault();
-          if (selectedTemplateIds.length === 0 || homePageKeywords.length === 0 || !serviceKeywordGroupsAreComplete || !connectedProvider) {
+          if (selectedTemplateIds.length === 0 || homePageKeywords.length === 0 || !serviceKeywordGroupsAreComplete || !connectedProvider || !imageUrlsAreComplete) {
             return;
           }
           mutation.mutate({
-            wizardConfig,
+            wizardConfig: wizardConfigWithImageUrls,
             aiProvider: connectedProvider.provider,
             aiApiKey: connectedProvider.apiKey,
             aiModel: connectedProvider.model,
@@ -348,21 +370,37 @@ export const ProjectWizard = (): ReactElement => {
             ) : null}
           </div>
           <textarea required className="min-h-24 rounded border border-slate-300 px-3 py-2" placeholder="Home page content keywords. Add one per line, or separate with commas." value={form.homePageKeywords} onChange={(event) => update("homePageKeywords", event.target.value)} />
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             <input className="rounded border border-slate-300 px-3 py-2" min="1" max="50" type="number" placeholder="Pages" value={form.pageCount} onChange={(event) => update("pageCount", event.target.value)} />
             <label className="grid gap-1 text-xs font-semibold text-slate-600">
               Choose the number of images to be added on the home page
               <input className="rounded border border-slate-300 px-3 py-2 text-sm font-normal text-ink" min="0" max="20" type="number" value={form.homeImageCount} onChange={(event) => update("homeImageCount", event.target.value)} />
             </label>
-            <label className="grid gap-1 text-xs font-semibold text-slate-600">
-              Choose the number of images to be added on the service page
-              <input className="rounded border border-slate-300 px-3 py-2 text-sm font-normal text-ink" min="0" max="20" type="number" value={form.serviceImageCount} onChange={(event) => update("serviceImageCount", event.target.value)} />
-            </label>
             <input className="rounded border border-slate-300 px-3 py-2" placeholder="Website URL" value={form.websiteUrl} onChange={(event) => update("websiteUrl", event.target.value)} />
           </div>
-          <p className="text-sm text-slate-500">
-            ForgeSEO generates one shared image set per generation with OpenAI when an OpenAI key is available, then reuses those images across every generated home and service page.
-          </p>
+          <div className="grid gap-3 rounded border border-slate-200 bg-slate-50 p-4">
+            <label className="grid gap-1 text-xs font-semibold text-slate-600">
+              Image source
+              <select className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-ink" value={form.imageSourceMode} onChange={(event) => update("imageSourceMode", event.target.value as ImageSourceMode)}>
+                <option value="forge">ForgeSEO generates images</option>
+                <option value="prompt-upload">Show prompts and upload images manually</option>
+                <option value="url">Use image URLs</option>
+              </select>
+            </label>
+            <p className="text-sm text-slate-500">
+              Home pages receive different images per generated page. Every service page receives one unique image at the start of that service page.
+            </p>
+            {form.imageSourceMode === "url" ? (
+              <div className="grid gap-3">
+                {imageRequirements.map((requirement) => (
+                  <label key={requirement.id} className="grid gap-1 text-xs font-semibold text-slate-600">
+                    {requirement.label}
+                    <input className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-ink" placeholder="https://..." value={form.imageUrls[requirement.id] ?? ""} onChange={(event) => updateImageUrl(requirement.id, event.target.value)} />
+                  </label>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </section>
 
         <section className="grid gap-4 rounded border border-slate-200 bg-white p-5">
@@ -580,7 +618,10 @@ export const ProjectWizard = (): ReactElement => {
             Connect {selectedProviderName} in <Link className="font-semibold text-ocean underline" to="/settings">Settings</Link> before generating.
           </p>
         ) : null}
-        <button disabled={mutation.isPending || selectedTemplateIds.length === 0 || homePageKeywords.length === 0 || !serviceKeywordGroupsAreComplete || !connectedProvider} className="inline-flex items-center justify-center gap-2 rounded bg-ocean px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400" type="submit">
+        {form.imageSourceMode === "url" && !imageUrlsAreComplete ? (
+          <p className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Add an image URL for every listed home and service image requirement.</p>
+        ) : null}
+        <button disabled={mutation.isPending || selectedTemplateIds.length === 0 || homePageKeywords.length === 0 || !serviceKeywordGroupsAreComplete || !connectedProvider || !imageUrlsAreComplete} className="inline-flex items-center justify-center gap-2 rounded bg-ocean px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400" type="submit">
           {mutation.isPending ? "Creating job..." : "Generate Website"}
           <ArrowRight className="h-4 w-4" />
         </button>

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Transaction } from "firebase-admin/firestore";
-import { COLLECTIONS, ENGINE_ORDER, type GenerationEngine, type GenerationJob, type Project, type ProjectWizardConfig, type StartGenerationRequest, type StartGenerationResponse, type WizardConfig } from "@forgeseo/shared";
+import { COLLECTIONS, ENGINE_ORDER, buildImageRequirements, type ContinueGenerationRequest, type GenerationEngine, type GenerationJob, type Project, type ProjectWizardConfig, type StartGenerationRequest, type StartGenerationResponse, type WizardConfig } from "@forgeseo/shared";
 import { config, getCapabilityState } from "../config.js";
 import { PublicError } from "../middleware/errors.js";
 import { scaleWorkerPool } from "./cloudRunWorkerScaler.js";
@@ -198,6 +198,44 @@ export class ProjectService {
     };
   }
 
+  async continueGenerationAfterImages(userId: string, jobId: string, request: ContinueGenerationRequest): Promise<StartGenerationResponse> {
+    const job = await this.getGenerationJob(userId, jobId);
+    if (job.status !== "waiting-for-images") {
+      throw new PublicError(409, "This generation job is not waiting for image uploads.");
+    }
+
+    const project = useLocalDataStore()
+      ? await this.localData.getProject(job.projectId)
+      : (await getFirestore().collection(COLLECTIONS.projects).doc(job.projectId).get()).data() as Project | undefined;
+    if (!project) {
+      throw new PublicError(404, "The project for this generation job was not found.");
+    }
+    if (project.userId !== userId) {
+      throw new PublicError(403, "You do not have access to this project.");
+    }
+
+    const requirements = job.imageRequirements?.length ? job.imageRequirements : buildImageRequirements(project.wizardConfig);
+    const inputIds = new Set(request.imageInputs.map((input) => input.requirementId));
+    const missing = requirements.filter((requirement) => !inputIds.has(requirement.id));
+    if (missing.length > 0) {
+      throw new PublicError(400, `Upload images for every prompt before continuing. Missing: ${missing.map((item) => item.label).join(", ")}.`);
+    }
+
+    await scheduleBackgroundTask(() => runDirectGeneration({
+      jobId,
+      projectId: job.projectId,
+      userId,
+      startAtEngine: "image-generator",
+      imageInputs: request.imageInputs
+    }), `Resume generation job ${jobId} after image upload`);
+
+    return {
+      projectId: job.projectId,
+      jobId,
+      status: "running"
+    };
+  }
+
   private async normalizeWizardConfig(input: ProjectWizardConfig): Promise<WizardConfig> {
     const templates = await this.templates.listTemplates();
     if (templates.length === 0) {
@@ -271,6 +309,10 @@ export class ProjectService {
       logoDataUrl: input.customLogoEnabled ? input.logoDataUrl : undefined,
       logoFileName: input.customLogoEnabled ? input.logoFileName : undefined,
       homePageKeywords: homePageKeywords.length ? homePageKeywords : undefined,
+      homeImageCount: Math.max(0, Math.min(20, input.homeImageCount ?? 0)),
+      serviceImageCount: input.selectedPages?.includes("services") === false ? 0 : 1,
+      imageSourceMode: input.imageSourceMode ?? "forge",
+      imageUrls: input.imageUrls?.length ? input.imageUrls : undefined,
       dropdownLabel: serviceKeywords[0] ?? input.dropdownLabel ?? undefined,
       serviceKeywords: serviceKeywords.length ? serviceKeywords : undefined,
       serviceKeywordGroups,
