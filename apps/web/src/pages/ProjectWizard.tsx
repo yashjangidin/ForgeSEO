@@ -292,6 +292,8 @@ export const ProjectWizard = (): ReactElement => {
   const imageRequirements = buildImageRequirements(wizardConfig);
   const homeImageRequirements = imageRequirements.filter((requirement) => requirement.kind === "home");
   const serviceImageRequirements = imageRequirements.filter((requirement) => requirement.kind === "service");
+  const serviceImageRequirementFor = (groupIndex: number, keywordIndex: number) =>
+    serviceImageRequirements.find((requirement) => requirement.pageIndex === groupIndex && requirement.serviceKeywordIndex === keywordIndex);
   const imageUrlsAreComplete = form.imageSourceMode !== "url" || imageRequirements.every((requirement) => form.imageUrls[requirement.id]?.trim());
   const updateImageUrl = (requirementId: string, url: string): void => {
     setForm((current) => ({
@@ -455,16 +457,21 @@ export const ProjectWizard = (): ReactElement => {
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-                    {form.imageSourceMode === "url" ? (
-                      serviceImageRequirements
-                        .filter((requirement) => requirement.pageIndex === groupIndex && requirement.serviceKeyword?.toLowerCase() === keyword.trim().toLowerCase())
-                        .map((requirement) => (
-                          <label key={requirement.id} className="grid gap-1 text-xs font-semibold text-slate-600">
-                            Image URL for {requirement.serviceKeyword}
-                            <input className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-ink" placeholder="https://..." value={form.imageUrls[requirement.id] ?? ""} onChange={(event) => updateImageUrl(requirement.id, event.target.value)} />
-                          </label>
-                        ))
-                    ) : null}
+                    {form.imageSourceMode === "url" ? (() => {
+                      const requirement = serviceImageRequirementFor(groupIndex, keywordIndex);
+                      return (
+                        <label className="grid gap-1 text-xs font-semibold text-slate-600">
+                          Image URL for {keyword.trim() || `service page ${keywordIndex + 1}`}
+                          <input
+                            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-ink disabled:bg-slate-100 disabled:text-slate-400"
+                            disabled={!requirement}
+                            placeholder={requirement ? "https://..." : "Enter the service keyword first"}
+                            value={requirement ? form.imageUrls[requirement.id] ?? "" : ""}
+                            onChange={(event) => requirement ? updateImageUrl(requirement.id, event.target.value) : undefined}
+                          />
+                        </label>
+                      );
+                    })() : null}
                   </div>
                 ))}
               </div>

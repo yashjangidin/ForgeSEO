@@ -69,6 +69,7 @@ export interface ImageRequirement {
   label: string;
   prompt: string;
   status: "pending" | "uploaded" | "resolved";
+  serviceKeywordIndex?: number;
   serviceKeyword?: string;
   fileName?: string;
   sourceUrl?: string;
@@ -221,6 +222,7 @@ export const buildImageRequirements = (config: WizardConfig): ImageRequirement[]
           id: `service-${pageIndex + 1}-${keywordIndex + 1}-${requirementSlug(keyword)}`,
           kind: "service",
           pageIndex,
+          serviceKeywordIndex: keywordIndex,
           imageIndex: 0,
           label,
           prompt: imagePromptForRequirement(config, label, variation, keyword),
